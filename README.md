@@ -60,6 +60,17 @@ Open <http://localhost:5173>. Vite proxies `/api` to the backend on port 8000, s
 
 Leave `GEMINI_API_KEY` empty in `backend/.env` and the AI chat runs in offline mode. Add a free key to switch it to Gemini — the AI Chat page shows which mode answered.
 
+## Tests
+
+```bash
+cd backend
+pytest -q
+```
+
+21 tests run against a temporary SQLite file, so the demo database is never touched. They cover
+authentication, the role permissions, the requirement-versioning rule, the three pinned traceability
+outcomes, Sprint 3 scoring HIGH and Sprint 4 LOW, context redaction, and the offline AI agent.
+
 ---
 
 ## Demo accounts
@@ -102,6 +113,7 @@ backend/
     routers/   auth.py core.py intelligence.py
     services/  traceability.py risk.py agent.py
   ml/          train_model.py risk_model.pkl metrics.json
+  tests/       test_core.py
   requirements.txt .env.example
 frontend/
   src/
