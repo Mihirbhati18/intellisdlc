@@ -21,6 +21,7 @@ import {
 
 import type { DashboardData, TraceabilityMatrix } from "../api";
 import { Badge, Card, ErrorBox, Loading, PageHeader, ProgressBar } from "../components/ui";
+import { useProject } from "../project";
 import { useFetch } from "../useFetch";
 
 const SEVERITY_COLORS: Record<string, string> = {
@@ -64,8 +65,13 @@ function Kpi({
 }
 
 export function Dashboard() {
-  const dashboard = useFetch<DashboardData>("/dashboard");
-  const matrix = useFetch<TraceabilityMatrix>("/traceability");
+  const { projectId } = useProject();
+  const dashboard = useFetch<DashboardData>(
+    projectId ? `/dashboard?project_id=${projectId}` : null,
+  );
+  const matrix = useFetch<TraceabilityMatrix>(
+    projectId ? `/traceability?project_id=${projectId}` : null,
+  );
 
   if (dashboard.loading) return <Loading label="Loading dashboard" />;
   if (dashboard.error) return <ErrorBox message={dashboard.error} onRetry={dashboard.reload} />;

@@ -18,6 +18,7 @@ import {
   Select,
   Table,
 } from "../components/ui";
+import { useProject } from "../project";
 import { useFetch, useLookups } from "../useFetch";
 
 const STATUSES = ["NOT_RUN", "PASSED", "FAILED"];
@@ -25,7 +26,10 @@ const STATUSES = ["NOT_RUN", "PASSED", "FAILED"];
 export function TestCases() {
   const { user, isManager } = useAuth();
   const canEdit = isManager || user?.role === "QA_ENGINEER";
-  const { data, loading, error, reload } = useFetch<TestCase[]>("/test-cases");
+  const { projectId } = useProject();
+  const { data, loading, error, reload } = useFetch<TestCase[]>(
+    projectId ? `/test-cases?project_id=${projectId}` : null,
+  );
   const { requirements, reqCode } = useLookups();
 
   const [statusFilter, setStatusFilter] = useState("");

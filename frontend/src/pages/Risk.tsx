@@ -29,6 +29,7 @@ import {
   Select,
   Table,
 } from "../components/ui";
+import { useProject } from "../project";
 import { useFetch } from "../useFetch";
 
 const LEVEL_STYLES: Record<string, { ring: string; text: string; bar: string; label: string }> = {
@@ -66,7 +67,10 @@ const FEATURE_LABELS: Record<string, string> = {
 };
 
 export function Risk() {
-  const sprints = useFetch<Sprint[]>("/sprints");
+  const { projectId } = useProject();
+  const sprints = useFetch<Sprint[]>(
+    projectId ? `/sprints?project_id=${projectId}` : null,
+  );
   const metrics = useFetch<ModelMetrics>("/ai/model-metrics");
 
   const [sprintId, setSprintId] = useState("");

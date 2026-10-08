@@ -12,6 +12,7 @@ import {
   ProgressBar,
   Select,
 } from "../components/ui";
+import { useProject } from "../project";
 import { useFetch } from "../useFetch";
 
 const OVERALL_FILTERS = [
@@ -22,8 +23,10 @@ const OVERALL_FILTERS = [
 ];
 
 export function Traceability() {
-  const { data, loading, error, reload } =
-    useFetch<TraceabilityMatrix>("/traceability");
+  const { projectId } = useProject();
+  const { data, loading, error, reload } = useFetch<TraceabilityMatrix>(
+    projectId ? `/traceability?project_id=${projectId}` : null,
+  );
   const [overall, setOverall] = useState("");
 
   const rows = useMemo(() => {

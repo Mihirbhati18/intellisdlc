@@ -1,6 +1,8 @@
 import {
   Bug as BugIcon,
+  ChevronDown,
   ClipboardList,
+  FolderKanban,
   FlaskConical,
   LayoutDashboard,
   LogOut,
@@ -15,6 +17,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 
 import type { Role } from "../api";
 import { useAuth } from "../auth";
+import { useProject } from "../project";
 
 interface NavItem {
   to: string;
@@ -25,6 +28,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { to: "/", label: "Dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
+  { to: "/projects", label: "Projects", icon: <FolderKanban className="h-4 w-4" /> },
   { to: "/requirements", label: "Requirements", icon: <ClipboardList className="h-4 w-4" /> },
   { to: "/sprints", label: "Sprints", icon: <SquareKanban className="h-4 w-4" /> },
   { to: "/bugs", label: "Bugs", icon: <BugIcon className="h-4 w-4" /> },
@@ -49,6 +53,7 @@ const ROLE_LABELS: Record<Role, string> = {
 
 export function Layout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
+  const { projects, projectId, project, setProjectId } = useProject();
   const navigate = useNavigate();
 
   if (!user) return null;
@@ -72,6 +77,29 @@ export function Layout({ children }: { children: ReactNode }) {
             <p className="text-xs text-slate-400">SDLC Management</p>
           </div>
         </div>
+
+        {projects.length > 0 && (
+          <div className="px-3 pb-3">
+            <label className="mb-1 block text-[0.65rem] font-semibold uppercase tracking-wide text-slate-400">
+              Project
+            </label>
+            <div className="relative">
+              <select
+                value={projectId ?? ""}
+                onChange={(event) => setProjectId(Number(event.target.value))}
+                title={project?.name ?? "Select a project"}
+                className="w-full appearance-none truncate rounded-lg border border-slate-300 bg-white py-2 pl-3 pr-8 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+              >
+                {projects.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-2.5 h-4 w-4 text-slate-400" />
+            </div>
+          </div>
+        )}
 
         <nav className="flex-1 space-y-1 px-3">
           {items.map((item) => (

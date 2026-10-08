@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { api, errorMessage, type AgentReply } from "../api";
 import { PageHeader, inputClass } from "../components/ui";
+import { useProject } from "../project";
 import { useFetch } from "../useFetch";
 
 interface Message {
@@ -21,6 +22,7 @@ const GREETING: Message = {
 };
 
 export function Chat() {
+  const { projectId } = useProject();
   const suggestions = useFetch<{ questions: string[] }>("/ai/agent/suggestions");
   const [messages, setMessages] = useState<Message[]>([GREETING]);
   const [question, setQuestion] = useState("");
@@ -39,7 +41,7 @@ export function Chat() {
     setBusy(true);
     try {
       const response = await api.post<AgentReply>("/ai/agent", {
-        project_id: 1,
+        project_id: projectId,
         question: trimmed,
       });
       setMessages((previous) => [

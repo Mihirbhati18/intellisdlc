@@ -24,6 +24,7 @@ import {
   Select,
   Table,
 } from "../components/ui";
+import { useProject } from "../project";
 import { useFetch, useLookups } from "../useFetch";
 
 const PRIORITIES: Priority[] = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
@@ -57,7 +58,10 @@ const EMPTY_FORM: FormState = {
 
 export function Requirements() {
   const { isManager } = useAuth();
-  const { data, loading, error, reload } = useFetch<Requirement[]>("/requirements");
+  const { projectId } = useProject();
+  const { data, loading, error, reload } = useFetch<Requirement[]>(
+    projectId ? `/requirements?project_id=${projectId}` : null,
+  );
   const { userName } = useLookups();
 
   const [statusFilter, setStatusFilter] = useState("");
@@ -117,7 +121,7 @@ export function Requirements() {
       if (editing) {
         await api.patch(`/requirements/${editing.id}`, payload);
       } else {
-        await api.post("/requirements", { ...payload, project_id: 1 });
+        await api.post("/requirements", { ...payload, project_id: projectId });
       }
       closeModal();
       reload();

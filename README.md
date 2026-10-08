@@ -21,6 +21,18 @@ Runs entirely locally: **no API key and no internet required.**
 
 Roles: `ADMIN`, `PROJECT_MANAGER`, `DEVELOPER`, `QA_ENGINEER`.
 
+### Multiple projects
+
+IntelliSDLC holds any number of projects side by side. The **Projects** page lists them and creates
+new ones; the switcher at the top of the sidebar changes which one you are working in, and that
+choice is remembered across sign-ins.
+
+Everything else on every page — requirements, sprints, tasks, bugs, test cases, deployments, the
+dashboard, the traceability matrix, the risk predictor and the AI chat — is scoped to the open
+project, so two projects never see each other's data. A brand new project starts completely empty;
+add its requirements and sprints from the usual pages. Only ADMIN and PROJECT_MANAGER can create or
+edit a project.
+
 ---
 
 ## Setup
@@ -79,8 +91,9 @@ DevTools Protocol) that clicks through every page and screenshots it. With the b
 
 ```bash
 "C:/Program Files/Google/Chrome/Application/chrome.exe" --headless=new --remote-debugging-port=9222   --user-data-dir=%TEMP%/intellisdlc-chrome about:blank
-node tools/drive.mjs        # 84 checks: every page, both roles, screenshots to tools/screenshots
-node tools/drive-edge.mjs   # 13 checks: stale token, empty states, a QA write, read-only roles
+node tools/drive.mjs          # 84 checks: every page, both roles, screenshots to tools/screenshots
+node tools/drive-edge.mjs     # 13 checks: stale token, empty states, a QA write, read-only roles
+node tools/drive-projects.mjs # 16 checks: create a second project and prove the data is isolated
 node tools/drive-offline.mjs  # what the UI shows when the backend is down
 ```
 
@@ -105,7 +118,7 @@ The login page has one-click buttons for the main accounts.
 
 ## Five-minute demo
 
-1. **Log in as the PM** (`pm@intellisdlc.dev`) using the quick-fill button.
+1. **Log in as the PM** (`pm@intellisdlc.dev`) using the quick-fill button. The sidebar switcher shows which project is open.
 2. **Dashboard** — KPIs, tasks by status, bugs by severity, traceability summary, active sprint.
 3. **Requirements → REQ-103** — open the detail page and show the three-entry **version history** (`HIGH → CRITICAL`, then `APPROVED → IN_DEVELOPMENT`) next to its linked tasks, tests, bugs and deployments.
 4. **Sprints → Sprint 3 - Payments** — the board with five status columns; change a card's status from the dropdown.
@@ -132,7 +145,8 @@ frontend/
   src/
     api.ts auth.tsx useFetch.ts App.tsx main.tsx
     components/  Layout.tsx ui.tsx
-    pages/       Login Dashboard Requirements RequirementDetail
+    project.tsx
+    pages/       Login Dashboard Projects Requirements RequirementDetail
                  Sprints SprintBoard Bugs TestCases Deployments
                  Traceability Risk Chat
 PROJECT_PLAN.md
@@ -146,7 +160,7 @@ Base path `/api/v1`.
 |---|---|
 | `GET /health` | Service status, model and AI mode |
 | `POST /auth/login`, `GET /auth/me` | Authentication |
-| CRUD on `/projects`, `/requirements`, `/sprints`, `/tasks`, `/bugs`, `/test-cases`, `/deployments` | Core records |
+| CRUD on `/projects`, `/requirements`, `/sprints`, `/tasks`, `/bugs`, `/test-cases`, `/deployments` | Core records. Every list accepts `?project_id=` |
 | `GET /users`, `GET /users/developers` | Team |
 | `GET /requirements/{id}/history`, `/links` | Versions and forward links |
 | `POST /tasks/{id}/time-logs` | Effort logging |

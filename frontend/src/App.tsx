@@ -1,12 +1,15 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import { Layout } from "./components/Layout";
+import { Loading } from "./components/ui";
 import { useAuth } from "./auth";
+import { useProject } from "./project";
 import { Bugs } from "./pages/Bugs";
 import { Chat } from "./pages/Chat";
 import { Dashboard } from "./pages/Dashboard";
 import { Deployments } from "./pages/Deployments";
 import { Login } from "./pages/Login";
+import { Projects } from "./pages/Projects";
 import { RequirementDetail } from "./pages/RequirementDetail";
 import { Requirements } from "./pages/Requirements";
 import { Risk } from "./pages/Risk";
@@ -17,7 +20,25 @@ import { Traceability } from "./pages/Traceability";
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  const { projects, ready } = useProject();
+  const location = useLocation();
+
   if (!user) return <Navigate to="/login" replace />;
+  // Wait for the first projects fetch before deciding anything: an empty list
+  // means "still loading" until `ready` flips, and redirecting on it would
+  // bounce every sign-in to the Projects page.
+  if (!ready) {
+    return (
+      <Layout>
+        <Loading label="Loading your projects" />
+      </Layout>
+    );
+  }
+  // With no projects at all the other pages have nothing to show, so send
+  // people to Projects where they can create the first one.
+  if (projects.length === 0 && location.pathname !== "/projects") {
+    return <Navigate to="/projects" replace />;
+  }
   return <Layout>{children}</Layout>;
 }
 
@@ -38,6 +59,14 @@ export default function App() {
         element={
           <Protected>
             <Dashboard />
+          </Protected>
+        }
+      />
+      <Route
+        path="/projects"
+        element={
+          <Protected>
+            <Projects />
           </Protected>
         }
       />

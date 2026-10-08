@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { api, errorMessage } from "./api";
+import { useProject } from "./project";
 
 interface FetchState<T> {
   data: T | null;
@@ -9,16 +10,25 @@ interface FetchState<T> {
   reload: () => void;
 }
 
-/** GET a list of urls into one state object; reload() refetches them all. */
-export function useFetch<T>(url: string, deps: unknown[] = []): FetchState<T> {
+/**
+ * GET a url into state. Passing null skips the request entirely, which is how
+ * pages wait for a project to be selected without firing an unscoped query.
+ */
+export function useFetch<T>(url: string | null, deps: unknown[] = []): FetchState<T> {
   const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(Boolean(url));
   const [error, setError] = useState("");
   const [tick, setTick] = useState(0);
 
   const reload = useCallback(() => setTick((value) => value + 1), []);
 
   useEffect(() => {
+    if (!url) {
+      setData(null);
+      setLoading(false);
+      setError("");
+      return;
+    }
     let active = true;
     setLoading(true);
     setError("");
@@ -42,10 +52,14 @@ export function useFetch<T>(url: string, deps: unknown[] = []): FetchState<T> {
   return { data, loading, error, reload };
 }
 
+/** Users are global; requirements and sprints are scoped to the open project. */
 export function useLookups() {
+  const { projectId } = useProject();
+  const scoped = (path: string) => (projectId ? `${path}?project_id=${projectId}` : null);
+
   const users = useFetch<import("./api").User[]>("/users");
-  const requirements = useFetch<import("./api").Requirement[]>("/requirements");
-  const sprints = useFetch<import("./api").Sprint[]>("/sprints");
+  const requirements = useFetch<import("./api").Requirement[]>(scoped("/requirements"));
+  const sprints = useFetch<import("./api").Sprint[]>(scoped("/sprints"));
 
   const userName = (id: number | null | undefined) =>
     users.data?.find((user) => user.id === id)?.full_name ?? "Unassigned";

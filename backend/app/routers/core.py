@@ -380,6 +380,7 @@ class TimeLogIn(BaseModel):
 
 @router.get("/tasks")
 def list_tasks(
+    project_id: Optional[int] = None,
     sprint_id: Optional[int] = None,
     requirement_id: Optional[int] = None,
     assigned_to: Optional[int] = None,
@@ -388,6 +389,11 @@ def list_tasks(
     user: User = Depends(get_current_user),
 ):
     stmt = select(Task)
+    if project_id is not None:
+        sprint_ids = session.exec(
+            select(Sprint.id).where(Sprint.project_id == project_id)
+        ).all()
+        stmt = stmt.where(Task.sprint_id.in_(list(sprint_ids)))
     if sprint_id is not None:
         stmt = stmt.where(Task.sprint_id == sprint_id)
     if requirement_id is not None:
@@ -587,12 +593,18 @@ class TestCaseIn(BaseModel):
 
 @router.get("/test-cases")
 def list_test_cases(
+    project_id: Optional[int] = None,
     requirement_id: Optional[int] = None,
     status_filter: Optional[TestStatus] = None,
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
     stmt = select(TestCase)
+    if project_id is not None:
+        req_ids = session.exec(
+            select(Requirement.id).where(Requirement.project_id == project_id)
+        ).all()
+        stmt = stmt.where(TestCase.requirement_id.in_(list(req_ids)))
     if requirement_id is not None:
         stmt = stmt.where(TestCase.requirement_id == requirement_id)
     if status_filter is not None:

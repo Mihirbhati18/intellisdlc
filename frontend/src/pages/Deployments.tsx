@@ -17,13 +17,17 @@ import {
   PageHeader,
   Select,
 } from "../components/ui";
+import { useProject } from "../project";
 import { useFetch, useLookups } from "../useFetch";
 
 const ENVIRONMENTS = ["DEV", "STAGING", "PRODUCTION"] as const;
 
 export function Deployments() {
   const { isManager } = useAuth();
-  const { data, loading, error, reload } = useFetch<Deployment[]>("/deployments");
+  const { projectId } = useProject();
+  const { data, loading, error, reload } = useFetch<Deployment[]>(
+    projectId ? `/deployments?project_id=${projectId}` : null,
+  );
   const { requirements, sprints, reqCode, sprintName } = useLookups();
 
   const [creating, setCreating] = useState(false);
@@ -42,7 +46,7 @@ export function Deployments() {
     setSaveError("");
     try {
       await api.post("/deployments", {
-        project_id: 1,
+        project_id: projectId,
         version: form.version,
         environment: form.environment,
         status: form.status,

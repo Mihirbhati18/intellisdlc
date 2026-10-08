@@ -24,6 +24,7 @@ import {
   Select,
   Table,
 } from "../components/ui";
+import { useProject } from "../project";
 import { useFetch, useLookups } from "../useFetch";
 
 const SEVERITIES: Priority[] = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
@@ -58,7 +59,10 @@ const EMPTY_FORM: FormState = {
 export function Bugs() {
   const { user, isManager } = useAuth();
   const canEdit = isManager || user?.role === "QA_ENGINEER";
-  const { data, loading, error, reload } = useFetch<Bug[]>("/bugs");
+  const { projectId } = useProject();
+  const { data, loading, error, reload } = useFetch<Bug[]>(
+    projectId ? `/bugs?project_id=${projectId}` : null,
+  );
   const { users, requirements, sprints, userName, reqCode } = useLookups();
 
   const [severityFilter, setSeverityFilter] = useState("");
@@ -107,7 +111,7 @@ export function Bugs() {
       if (editing) {
         await api.patch(`/bugs/${editing.id}`, payload);
       } else {
-        await api.post("/bugs", { ...payload, project_id: 1 });
+        await api.post("/bugs", { ...payload, project_id: projectId });
       }
       setEditing(null);
       setCreating(false);

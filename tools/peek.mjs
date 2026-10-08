@@ -1,0 +1,24 @@
+/** Attach to the visible Chrome on 9222 and capture whatever is on screen right now. */
+import { writeFileSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
+const SHOTS = join(process.cwd(), "tools", "screenshots");
+mkdirSync(SHOTS, { recursive: true });
+const name = process.argv[2] ?? "live";
+let nextId = 1; const pending = new Map();
+const targets = await (await fetch("http://127.0.0.1:9222/json/list")).json();
+const t = targets.filter(x => x.type === "page").find(x => x.url.includes("localhost:5173")) || targets.find(x => x.type === "page");
+const ws = new WebSocket(t.webSocketDebuggerUrl);
+await new Promise((r, j) => { ws.addEventListener("open", r, {once:true}); ws.addEventListener("error", j, {once:true}); });
+ws.addEventListener("message", (e) => { const m = JSON.parse(e.data);
+  if (m.id && pending.has(m.id)) { const {resolve, reject} = pending.get(m.id); pending.delete(m.id);
+    m.error ? reject(new Error(m.error.message)) : resolve(m.result); } });
+const send = (method, params={}) => { const id = nextId++; ws.send(JSON.stringify({id, method, params}));
+  return new Promise((res, rej) => pending.set(id, {resolve: res, reject: rej})); };
+await send("Page.enable"); await send("Runtime.enable");
+const ev = async (x) => (await send("Runtime.evaluate", {expression: x, returnByValue: true, awaitPromise: true})).result?.value;
+console.log("URL:", await ev("window.location.pathname"));
+console.log("signed in as:", await ev(`(() => { const u = localStorage.getItem("intellisdlc_user"); return u ? JSON.parse(u).full_name + " (" + JSON.parse(u).role + ")" : "nobody"; })()`));
+const { data } = await send("Page.captureScreenshot", { format: "png" });
+writeFileSync(join(SHOTS, `${name}.png`), Buffer.from(data, "base64"));
+console.log("captured ->", `tools/screenshots/${name}.png`);
+ws.close();

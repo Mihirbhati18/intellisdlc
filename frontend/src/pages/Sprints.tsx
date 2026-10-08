@@ -18,6 +18,7 @@ import {
   ProgressBar,
   Select,
 } from "../components/ui";
+import { useProject } from "../project";
 import { useFetch } from "../useFetch";
 
 function today(offsetDays = 0): string {
@@ -28,8 +29,11 @@ function today(offsetDays = 0): string {
 
 export function Sprints() {
   const { isManager } = useAuth();
-  const sprints = useFetch<Sprint[]>("/sprints");
-  const tasks = useFetch<Task[]>("/tasks");
+  const { projectId } = useProject();
+  const sprints = useFetch<Sprint[]>(
+    projectId ? `/sprints?project_id=${projectId}` : null,
+  );
+  const tasks = useFetch<Task[]>(projectId ? `/tasks?project_id=${projectId}` : null);
 
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -47,7 +51,7 @@ export function Sprints() {
     setSaving(true);
     setSaveError("");
     try {
-      await api.post("/sprints", { ...form, project_id: 1 });
+      await api.post("/sprints", { ...form, project_id: projectId });
       setCreating(false);
       sprints.reload();
     } catch (caught) {
