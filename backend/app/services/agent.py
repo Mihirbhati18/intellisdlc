@@ -42,15 +42,28 @@ SENSITIVE_KEYS = ("password_hash", "password", "token", "secret", "api_key", "ap
 EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
 KEY_LIKE_RE = re.compile(r"\b(?:AIza[\w-]{10,}|sk-[\w-]{10,}|eyJ[\w-]{20,})\b")
 
+# Ordered most specific first: ties in the keyword count are broken by this order,
+# so "what is the risk of the active sprint" classifies as RISK, not SPRINT.
 CATEGORY_KEYWORDS = {
-    "SPRINT": ("sprint", "velocity", "burndown", "burn-down", "iteration"),
-    "TASKS": ("task", "assigned", "workload", "progress", "todo", "in progress"),
+    "TRACEABILITY": ("traceability", "trace", "coverage matrix", "matrix", "linked", "untested"),
+    "RISK": ("risk", "danger", "late", "slip", "delay", "blocked"),
+    "TASKS": (
+        "task",
+        "assigned",
+        "workload",
+        "overload",
+        "overloaded",
+        "capacity",
+        "busy",
+        "progress",
+        "todo",
+        "in progress",
+    ),
     "BUGS": ("bug", "defect", "issue", "crash", "severity", "critical"),
     "TESTS": ("test", "test case", "qa", "coverage", "passed", "failed"),
     "REQUIREMENTS": ("requirement", "req-", "scope", "feature", "story", "priority"),
     "DEPLOYMENTS": ("deploy", "deployment", "release", "staging", "production", "environment"),
-    "RISK": ("risk", "danger", "late", "slip", "delay", "blocked"),
-    "TRACEABILITY": ("traceability", "trace", "coverage matrix", "matrix", "linked", "untested"),
+    "SPRINT": ("sprint", "velocity", "burndown", "burn-down", "iteration"),
 }
 
 CLOSED_BUG_STATES = (BugStatus.CLOSED, BugStatus.RESOLVED)
@@ -96,6 +109,10 @@ def retrieve_project_context(session: Session, project_id: int, category: str) -
     wants = {category}
     if category == "GENERAL":
         wants = {"SPRINT", "TASKS", "BUGS", "REQUIREMENTS"}
+    if category == "SPRINT":
+        wants = {"SPRINT", "TASKS"}
+    if category == "TESTS":
+        wants = {"TESTS", "REQUIREMENTS"}
     if category == "RISK":
         wants = {"SPRINT", "TASKS", "BUGS", "RISK"}
     if category == "TRACEABILITY":
@@ -200,13 +217,19 @@ def _offline_answer(question: str, category: str, context: dict) -> tuple[str, l
         elif sprints:
             lines.append(f"- {len(sprints)} sprints recorded; none is currently active.")
 
-    if category in ("TASKS", "GENERAL", "RISK"):
+    if category in ("TASKS", "SPRINT", "GENERAL", "RISK"):
         tasks = context.get("tasks", [])
+        scope = "Tasks"
+        if category in ("SPRINT", "RISK"):
+            active = [s for s in context.get("sprints", []) if s["status"] == "ACTIVE"]
+            if active:
+                tasks = [t for t in tasks if t["sprint_id"] == active[0]["id"]]
+                scope = f"{active[0]['name']} tasks"
         if tasks:
             done = [t for t in tasks if t["status"] == "DONE"]
             blocked = [t for t in tasks if t["status"] == "BLOCKED"]
             lines.append(
-                f"- Tasks: {len(done)} of {len(tasks)} done"
+                f"- {scope}: {len(done)} of {len(tasks)} done"
                 + (f", {len(blocked)} blocked." if blocked else ".")
             )
             team = {u["id"]: u for u in context.get("team", [])}
@@ -249,6 +272,13 @@ def _offline_answer(question: str, category: str, context: dict) -> tuple[str, l
             for test_case in failed[:3]:
                 lines.append(f"  - {test_case['test_code']} failed: {test_case['title']}")
                 sources.append(test_case["test_code"])
+        covered = {t["requirement_id"] for t in test_cases}
+        untested = [r for r in context.get("requirements", []) if r["id"] not in covered]
+        if untested:
+            lines.append(f"- {len(untested)} requirements have no test case yet:")
+            for requirement in untested[:6]:
+                lines.append(f"  - {requirement['req_code']} {requirement['title']}")
+                sources.append(requirement["req_code"])
 
     if category == "DEPLOYMENTS":
         deployments = context.get("deployments", [])
