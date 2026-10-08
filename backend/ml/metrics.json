@@ -1,0 +1,46 @@
+{
+  "model": "LogisticRegression (StandardScaler pipeline)",
+  "rows": 2000,
+  "at_risk_share": 0.44,
+  "train_rows": 1600,
+  "test_rows": 400,
+  "accuracy": 0.735,
+  "precision": 0.6902,
+  "recall": 0.7216,
+  "f1": 0.7056,
+  "confusion_matrix": [
+    [
+      167,
+      57
+    ],
+    [
+      49,
+      127
+    ]
+  ],
+  "features": [
+    "open_bugs_count",
+    "critical_bugs_count",
+    "build_failure_rate",
+    "requirement_changes_count",
+    "avg_developer_load",
+    "missed_deadlines_last_sprint",
+    "days_remaining",
+    "total_tasks",
+    "completed_tasks",
+    "completion_ratio"
+  ],
+  "coefficients": {
+    "open_bugs_count": 0.5264,
+    "critical_bugs_count": 0.5114,
+    "build_failure_rate": 0.3086,
+    "requirement_changes_count": 0.4482,
+    "avg_developer_load": 0.4752,
+    "missed_deadlines_last_sprint": 0.2473,
+    "days_remaining": -0.3094,
+    "total_tasks": 0.0492,
+    "completed_tasks": 0.147,
+    "completion_ratio": -0.8076
+  },
+  "random_state": 42
+}
