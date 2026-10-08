@@ -71,6 +71,19 @@ pytest -q
 authentication, the role permissions, the requirement-versioning rule, the three pinned traceability
 outcomes, Sprint 3 scoring HIGH and Sprint 4 LOW, context redaction, and the offline AI agent.
 
+### Driving the UI
+
+`tools/` holds a dependency-free headless-Chrome driver (Node's built-in WebSocket speaking the
+DevTools Protocol) that clicks through every page and screenshots it. With the backend and
+`npm run dev` already running:
+
+```bash
+"C:/Program Files/Google/Chrome/Application/chrome.exe" --headless=new --remote-debugging-port=9222   --user-data-dir=%TEMP%/intellisdlc-chrome about:blank
+node tools/drive.mjs        # 84 checks: every page, both roles, screenshots to tools/screenshots
+node tools/drive-edge.mjs   # 13 checks: stale token, empty states, a QA write, read-only roles
+node tools/drive-offline.mjs  # what the UI shows when the backend is down
+```
+
 ---
 
 ## Demo accounts

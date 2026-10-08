@@ -139,7 +139,7 @@ export function Badge({ value, className = "" }: { value: string; className?: st
   const tone = BADGE_TONES[value] ?? "bg-slate-100 text-slate-600 border-slate-200";
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${tone} ${className}`}
+      className={`inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium ${tone} ${className}`}
     >
       {value.replaceAll("_", " ")}
     </span>

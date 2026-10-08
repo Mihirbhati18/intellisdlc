@@ -9,3 +9,6 @@ venv/
 node_modules/
 dist/
 .DS_Store
+
+# UI driver output
+tools/screenshots/

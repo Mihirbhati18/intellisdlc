@@ -30,11 +30,22 @@ api.interceptors.response.use(
   },
 );
 
+const UNREACHABLE =
+  "Cannot reach the IntelliSDLC API. Check that the backend is running on port 8000.";
+
 export function errorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
     const detail = error.response?.data?.detail;
     if (typeof detail === "string") return detail;
-    if (error.response?.status === 403) return "You do not have permission to do that.";
+
+    // No response at all, or the dev proxy answering for a backend that is not
+    // listening: "Request failed with status code 500" tells the user nothing.
+    if (!error.response || error.code === "ERR_NETWORK") return UNREACHABLE;
+
+    const status = error.response.status;
+    if (status >= 500) return UNREACHABLE;
+    if (status === 403) return "You do not have permission to do that.";
+    if (status === 404) return "That record no longer exists.";
     return error.message;
   }
   return "Something went wrong.";

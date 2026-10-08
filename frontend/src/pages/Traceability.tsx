@@ -11,7 +11,6 @@ import {
   PageHeader,
   ProgressBar,
   Select,
-  Table,
 } from "../components/ui";
 import { useFetch } from "../useFetch";
 
@@ -23,7 +22,8 @@ const OVERALL_FILTERS = [
 ];
 
 export function Traceability() {
-  const { data, loading, error, reload } = useFetch<TraceabilityMatrix>("/traceability");
+  const { data, loading, error, reload } =
+    useFetch<TraceabilityMatrix>("/traceability");
   const [overall, setOverall] = useState("");
 
   const rows = useMemo(() => {
@@ -57,21 +57,37 @@ export function Traceability() {
           </div>
         </div>
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-emerald-600">Complete</p>
-          <p className="mt-2 text-2xl font-semibold text-emerald-700">{summary.complete}</p>
-          <p className="mt-0.5 text-xs text-emerald-600">of {summary.total} requirements</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-emerald-600">
+            Complete
+          </p>
+          <p className="mt-2 text-2xl font-semibold text-emerald-700">
+            {summary.complete}
+          </p>
+          <p className="mt-0.5 text-xs text-emerald-600">
+            of {summary.total} requirements
+          </p>
         </div>
         <div className="rounded-xl border border-rose-200 bg-rose-50 p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-rose-600">At risk</p>
-          <p className="mt-2 text-2xl font-semibold text-rose-700">{summary.at_risk}</p>
-          <p className="mt-0.5 text-xs text-rose-600">failing tests or critical bugs</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-rose-600">
+            At risk
+          </p>
+          <p className="mt-2 text-2xl font-semibold text-rose-700">
+            {summary.at_risk}
+          </p>
+          <p className="mt-0.5 text-xs text-rose-600">
+            failing tests or critical bugs
+          </p>
         </div>
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-amber-600">
             Without tests
           </p>
-          <p className="mt-2 text-2xl font-semibold text-amber-700">{summary.without_tests}</p>
-          <p className="mt-0.5 text-xs text-amber-600">no test case written yet</p>
+          <p className="mt-2 text-2xl font-semibold text-amber-700">
+            {summary.without_tests}
+          </p>
+          <p className="mt-0.5 text-xs text-amber-600">
+            no test case written yet
+          </p>
         </div>
       </div>
 
@@ -91,85 +107,117 @@ export function Traceability() {
         {rows.length === 0 ? (
           <EmptyState message="No requirements in this category" />
         ) : (
-          <Table
-            head={[
-              "Code",
-              "Requirement",
-              "Designed",
-              "Implemented",
-              "Tested",
-              "Bugs",
-              "Deployed",
-              "Coverage",
-              "Overall",
-            ]}
-          >
-            {rows.map((row) => (
-              <tr key={row.requirement_id} className="hover:bg-slate-50">
-                <td className="whitespace-nowrap px-3 py-2.5 font-medium">
-                  <Link
-                    to={`/requirements/${row.requirement_id}`}
-                    className="text-slate-900 hover:text-indigo-600"
-                  >
-                    {row.req_code}
-                  </Link>
-                </td>
-                <td className="max-w-xs truncate px-3 py-2.5 text-slate-700">{row.title}</td>
-                <td className="px-3 py-2.5">
-                  <Badge value={row.designed} />
-                </td>
-                <td className="whitespace-nowrap px-3 py-2.5">
-                  <Badge value={row.implemented} />
-                  <span className="ml-1.5 text-xs text-slate-400">{row.implemented_detail}</span>
-                </td>
-                <td className="whitespace-nowrap px-3 py-2.5">
-                  <Badge value={row.tested} />
-                  {row.test_count > 0 && (
-                    <span className="ml-1.5 text-xs text-slate-400">{row.tested_detail}</span>
-                  )}
-                </td>
-                <td className="whitespace-nowrap px-3 py-2.5">
-                  {row.open_bugs === 0 ? (
-                    <span className="text-xs text-slate-400">none</span>
-                  ) : (
-                    <span
-                      className={
-                        row.critical_open_bugs > 0
-                          ? "text-sm font-medium text-rose-600"
-                          : "text-sm text-amber-600"
-                      }
+          // Not the shared <Table>: this one is wide enough to scroll sideways, and
+          // Overall is the column a reader actually came for, so it is pinned to the
+          // right edge instead of being the first thing to disappear.
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-400">
+                  {[
+                    "Code",
+                    "Requirement",
+                    "Designed",
+                    "Implemented",
+                    "Tested",
+                    "Bugs",
+                    "Deployed",
+                    "Coverage",
+                  ].map((column) => (
+                    <th
+                      key={column}
+                      className="whitespace-nowrap px-2 py-2 font-medium"
                     >
-                      {row.open_bugs} open
-                      {row.critical_open_bugs > 0 && ` (${row.critical_open_bugs} critical)`}
-                    </span>
-                  )}
-                </td>
-                <td className="px-3 py-2.5">
-                  <Badge value={row.deployed} />
-                </td>
-                <td className="px-3 py-2.5">
-                  <div className="flex w-24 items-center gap-2">
-                    <ProgressBar
-                      value={row.coverage_pct}
-                      tone={
-                        row.coverage_pct === 100
-                          ? "emerald"
-                          : row.coverage_pct >= 60
-                            ? "indigo"
-                            : "amber"
-                      }
-                    />
-                    <span className="w-9 shrink-0 text-xs text-slate-500">
-                      {row.coverage_pct}%
-                    </span>
-                  </div>
-                </td>
-                <td className="px-3 py-2.5">
-                  <Badge value={row.overall} />
-                </td>
-              </tr>
-            ))}
-          </Table>
+                      {column}
+                    </th>
+                  ))}
+                  <th className="sticky right-0 z-10 whitespace-nowrap border-l border-slate-200 bg-white px-2 py-2 font-medium">
+                    Overall
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {rows.map((row) => (
+                  <tr
+                    key={row.requirement_id}
+                    className="group hover:bg-slate-50"
+                  >
+                    <td className="whitespace-nowrap px-2 py-2.5 font-medium">
+                      <Link
+                        to={`/requirements/${row.requirement_id}`}
+                        className="text-slate-900 hover:text-indigo-600"
+                      >
+                        {row.req_code}
+                      </Link>
+                    </td>
+                    <td
+                      className="max-w-[11rem] truncate px-2 py-2.5 text-slate-700"
+                      title={row.title}
+                    >
+                      {row.title}
+                    </td>
+                    <td className="px-2 py-2.5">
+                      <Badge value={row.designed} />
+                    </td>
+                    <td className="whitespace-nowrap px-2 py-2.5">
+                      <Badge value={row.implemented} />
+                      <span className="ml-1.5 text-xs text-slate-400">
+                        {row.implemented_detail}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap px-2 py-2.5">
+                      <Badge value={row.tested} />
+                      {row.test_count > 0 && (
+                        <span className="ml-1.5 text-xs text-slate-400">
+                          {row.tested_detail}
+                        </span>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap px-2 py-2.5">
+                      {row.open_bugs === 0 ? (
+                        <span className="text-xs text-slate-400">none</span>
+                      ) : (
+                        <span
+                          className={
+                            row.critical_open_bugs > 0
+                              ? "text-sm font-medium text-rose-600"
+                              : "text-sm text-amber-600"
+                          }
+                        >
+                          {row.open_bugs} open
+                          {row.critical_open_bugs > 0 &&
+                            ` (${row.critical_open_bugs} critical)`}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-2 py-2.5">
+                      <Badge value={row.deployed} />
+                    </td>
+                    <td className="px-2 py-2.5">
+                      <div className="flex w-20 items-center gap-1.5">
+                        <ProgressBar
+                          value={row.coverage_pct}
+                          tone={
+                            row.coverage_pct === 100
+                              ? "emerald"
+                              : row.coverage_pct >= 60
+                                ? "indigo"
+                                : "amber"
+                          }
+                        />
+                        <span className="w-8 shrink-0 text-xs text-slate-500">
+                          {row.coverage_pct}%
+                        </span>
+                      </div>
+                    </td>
+                    <td className="sticky right-0 z-10 border-l border-slate-200 bg-white px-2 py-2.5 group-hover:bg-slate-50">
+                      <Badge value={row.overall} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
     </div>
