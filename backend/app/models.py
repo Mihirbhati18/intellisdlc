@@ -218,3 +218,31 @@ class RiskPrediction(SQLModel, table=True):
     risk_score: float
     risk_level: RiskLevel
     created_at: datetime = Field(default_factory=utcnow)
+
+class Repository(SQLModel, table=True):
+    """A git working copy on disk that backs a project."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    project_id: int = Field(foreign_key="project.id", index=True)
+    name: str
+    path: str
+    branch: str = Field(default="")
+    last_synced_at: Optional[datetime] = Field(default=None)
+    commit_count: int = Field(default=0)
+
+
+class Commit(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    repository_id: int = Field(foreign_key="repository.id", index=True)
+    project_id: int = Field(foreign_key="project.id", index=True)
+    sha: str = Field(index=True)
+    author_name: str = Field(default="")
+    author_email: str = Field(default="")
+    committed_at: datetime
+    subject: str = Field(default="")
+    body: str = Field(default="")
+
+
+class CommitRequirement(SQLModel, table=True):
+    commit_id: int = Field(foreign_key="commit.id", primary_key=True)
+    requirement_id: int = Field(foreign_key="requirement.id", primary_key=True)

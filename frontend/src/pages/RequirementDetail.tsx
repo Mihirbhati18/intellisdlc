@@ -1,7 +1,8 @@
-import { ArrowLeft, History } from "lucide-react";
+import { ArrowLeft, GitCommitHorizontal, History } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 
 import type {
+  Commit,
   Requirement,
   RequirementLinks,
   RequirementVersionRow,
@@ -14,6 +15,7 @@ export function RequirementDetail() {
   const requirement = useFetch<Requirement>(`/requirements/${id}`);
   const history = useFetch<RequirementVersionRow[]>(`/requirements/${id}/history`);
   const links = useFetch<RequirementLinks>(`/requirements/${id}/links`);
+  const commits = useFetch<Commit[]>(`/requirements/${id}/commits`);
   const { userName, sprintName } = useLookups();
 
   if (requirement.loading) return <Loading label="Loading requirement" />;
@@ -103,6 +105,39 @@ export function RequirementDetail() {
       </div>
 
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
+        <Card
+          title="Commits"
+          actions={<GitCommitHorizontal className="h-4 w-4 text-slate-300" />}
+        >
+          {commits.loading ? (
+            <Loading />
+          ) : commits.error ? (
+            <ErrorBox message={commits.error} onRetry={commits.reload} />
+          ) : (commits.data ?? []).length === 0 ? (
+            <EmptyState
+              message="No commits reference this requirement"
+              hint={`Name ${row.req_code} in a commit message, then sync on the Code page.`}
+            />
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {(commits.data ?? []).map((commit) => (
+                <li key={commit.id} className="flex gap-3 py-2.5">
+                  <span className="mt-0.5 font-mono text-xs text-slate-400">
+                    {commit.short_sha}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm text-slate-700">{commit.subject}</p>
+                    <p className="text-xs text-slate-400">
+                      {commit.author_name} &middot;{" "}
+                      {new Date(commit.committed_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
         <Card title="Linked tasks">
           {links.loading ? (
             <Loading />

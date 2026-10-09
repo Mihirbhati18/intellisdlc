@@ -6,6 +6,7 @@ import { useAuth } from "./auth";
 import { useProject } from "./project";
 import { Bugs } from "./pages/Bugs";
 import { Chat } from "./pages/Chat";
+import { Code } from "./pages/Code";
 import { Dashboard } from "./pages/Dashboard";
 import { Deployments } from "./pages/Deployments";
 import { Login } from "./pages/Login";
@@ -115,6 +116,14 @@ export default function App() {
         element={
           <Protected>
             <TestCases />
+          </Protected>
+        }
+      />
+      <Route
+        path="/code"
+        element={
+          <Protected>
+            <Code />
           </Protected>
         }
       />

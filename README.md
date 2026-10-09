@@ -72,6 +72,26 @@ Open <http://localhost:5173>. Vite proxies `/api` to the backend on port 8000, s
 
 Leave `GEMINI_API_KEY` empty in `backend/.env` and the AI chat runs in offline mode. Add a free key to switch it to Gemini — the AI Chat page shows which mode answered.
 
+## Connecting a git repository
+
+The **Code** page points a project at a git working copy on disk and reads its real commit history.
+A commit links to a requirement when its message names the code:
+
+```
+git commit -m "REQ-103 add refund handling"
+```
+
+Press **Sync** and IntelliSDLC runs `git log`, stores the commits and rebuilds the links. One commit
+can name several requirements, and re-syncing rebuilds the links, so correcting a message fixes the
+record. The repository is only ever read &mdash; nothing is written or pushed.
+
+Linked commits then appear on the requirement detail page and as a **Commits** column in the
+traceability matrix, sitting *beside* the task-based "Implemented" rather than replacing it, so the
+gap between work that was ticked off and work that was actually committed stays visible.
+
+The demo seeds a repository pointing at IntelliSDLC's own folder, so pressing Sync shows this
+project's real history. No token, no network, no GitHub account.
+
 ## Tests
 
 ```bash
@@ -79,9 +99,10 @@ cd backend
 pytest -q
 ```
 
-21 tests run against a temporary SQLite file, so the demo database is never touched. They cover
+35 tests run against a temporary SQLite file, so the demo database is never touched. They cover
 authentication, the role permissions, the requirement-versioning rule, the three pinned traceability
-outcomes, Sprint 3 scoring HIGH and Sprint 4 LOW, context redaction, and the offline AI agent.
+outcomes, Sprint 3 scoring HIGH and Sprint 4 LOW, context redaction, the offline AI agent, and the
+git integration (which builds a real throwaway repository and syncs it).
 
 ### Driving the UI
 
@@ -94,6 +115,7 @@ DevTools Protocol) that clicks through every page and screenshots it. With the b
 node tools/drive.mjs          # 84 checks: every page, both roles, screenshots to tools/screenshots
 node tools/drive-edge.mjs     # 13 checks: stale token, empty states, a QA write, read-only roles
 node tools/drive-projects.mjs # 16 checks: create a second project and prove the data is isolated
+node tools/drive-code.mjs     # 15 checks: sync a real repository and check the evidence lands
 node tools/drive-offline.mjs  # what the UI shows when the backend is down
 ```
 
@@ -136,8 +158,8 @@ The login page has one-click buttons for the main accounts.
 backend/
   app/
     main.py config.py database.py models.py security.py seed.py
-    routers/   auth.py core.py intelligence.py
-    services/  traceability.py risk.py agent.py
+    routers/   auth.py core.py intelligence.py repository.py
+    services/  traceability.py risk.py agent.py repository.py
   ml/          train_model.py risk_model.pkl metrics.json
   tests/       test_core.py
   requirements.txt .env.example
@@ -148,7 +170,7 @@ frontend/
     project.tsx
     pages/       Login Dashboard Projects Requirements RequirementDetail
                  Sprints SprintBoard Bugs TestCases Deployments
-                 Traceability Risk Chat
+                 Traceability Risk Chat Code
 PROJECT_PLAN.md
 ```
 
@@ -169,5 +191,7 @@ Base path `/api/v1`.
 | `POST /ai/predict-risk` | Sprint risk score, drivers, actions |
 | `GET /ai/model-metrics` | Trained model metrics |
 | `POST /ai/agent` | Project chat |
+| `/repositories`, `/repositories/{id}/sync` | Connect a git folder and read its commits |
+| `GET /commits`, `GET /requirements/{id}/commits` | Commits, and the ones naming a requirement |
 
 **Permissions:** ADMIN and PROJECT_MANAGER create and edit everything. DEVELOPER can only change the status of, and log time on, tasks assigned to them. QA_ENGINEER creates and edits bugs and test cases. The risk predictor is ADMIN/PM only. Everyone can read and use the AI chat.

@@ -207,6 +207,7 @@ export interface TraceabilityRow {
   designed: "DONE" | "MISSING";
   implemented: "NOT_STARTED" | "PARTIAL" | "DONE";
   implemented_detail: string;
+  commits: number;
   tested: "NO_TESTS" | "FAILED" | "PASSED" | "PENDING";
   tested_detail: string;
   test_count: number;
@@ -226,6 +227,7 @@ export interface TraceabilityMatrix {
     at_risk: number;
     incomplete: number;
     without_tests: number;
+    with_commits: number;
     avg_coverage_pct: number;
   };
 }
@@ -269,6 +271,42 @@ export interface AgentReply {
   mode: "gemini" | "offline";
   category: string;
   sources: string[];
+}
+
+
+export interface Repository {
+  id: number;
+  project_id: number;
+  name: string;
+  path: string;
+  branch: string;
+  last_synced_at: string | null;
+  commit_count: number;
+}
+
+export interface Commit {
+  id: number;
+  repository_id: number;
+  project_id: number;
+  sha: string;
+  short_sha: string;
+  author_name: string;
+  author_email: string;
+  committed_at: string;
+  subject: string;
+  body: string;
+  requirement_codes: string[];
+}
+
+export interface SyncResult {
+  repository_id: number;
+  branch: string;
+  commits_read: number;
+  commits_added: number;
+  commits_total: number;
+  links_written: number;
+  unmatched_codes: string[];
+  last_synced_at: string;
 }
 
 export interface RequirementLinks {

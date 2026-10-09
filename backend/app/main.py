@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .database import init_db
-from .routers import auth, core, intelligence
+from .routers import auth, core, intelligence, repository
 from .services import risk
 
 
@@ -43,6 +43,7 @@ def health() -> dict:
 app.include_router(auth.router, prefix=settings.api_prefix)
 app.include_router(core.router, prefix=settings.api_prefix)
 app.include_router(intelligence.router, prefix=settings.api_prefix)
+app.include_router(repository.router, prefix=settings.api_prefix)
 
 
 @app.get("/")

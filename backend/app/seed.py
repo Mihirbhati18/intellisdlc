@@ -8,6 +8,7 @@ from datetime import date, datetime, timedelta
 
 from sqlmodel import Session, SQLModel, select
 
+from .config import BASE_DIR
 from .database import engine, init_db
 from .models import (
     Bug,
@@ -19,6 +20,7 @@ from .models import (
     Priority,
     Project,
     ProjectStatus,
+    Repository,
     Requirement,
     RequirementStatus,
     RequirementType,
@@ -394,6 +396,8 @@ def seed(session: Session) -> None:
             )
     session.commit()
 
+    _seed_repository(session, project)
+
     # A few time logs so developer effort is not empty.
     done_dev_tasks = [t for t in tasks if t.status == TaskStatus.DONE and t.assigned_to]
     for task in done_dev_tasks[:8]:
@@ -405,6 +409,26 @@ def seed(session: Session) -> None:
                 date=(task.completed_at.date() if task.completed_at else today),
             )
         )
+    session.commit()
+
+
+def _seed_repository(session: Session, project: Project) -> None:
+    """Point the demo project at IntelliSDLC's own working copy.
+
+    Nothing is read from git here - registering the path is enough. Pressing
+    Sync on the Code page then pulls this project's real commit history in,
+    which is a more honest demonstration than inventing commits.
+    """
+    repo_root = BASE_DIR.parent
+    if not (repo_root / ".git").exists():
+        return
+    session.add(
+        Repository(
+            project_id=project.id,
+            name="IntelliSDLC (this project)",
+            path=str(repo_root),
+        )
+    )
     session.commit()
 
 

@@ -8,6 +8,7 @@ from typing import Optional
 
 from sqlmodel import Session, select
 
+from . import repository as repo_service
 from ..models import (
     Bug,
     BugStatus,
@@ -126,6 +127,9 @@ def build_matrix(session: Session, project_id: Optional[int] = None) -> dict:
         else []
     )
     deployment_by_id = {d.id: d for d in deployments}
+    # Commit evidence sits alongside the task-based view, never replacing it:
+    # the gap between 'tasks ticked' and 'code merged' is itself informative.
+    commit_counts = repo_service.commit_counts_by_requirement(session, project_id)
 
     tasks_by_req: dict[int, list[Task]] = {}
     for task in tasks:
@@ -168,6 +172,7 @@ def build_matrix(session: Session, project_id: Optional[int] = None) -> dict:
                 "designed": designed,
                 "implemented": implemented,
                 "implemented_detail": implemented_detail,
+                "commits": commit_counts.get(requirement.id, 0),
                 "tested": tested,
                 "tested_detail": tested_detail,
                 "test_count": len(req_tests),
@@ -194,6 +199,7 @@ def _summary(rows: list[dict]) -> dict:
         "at_risk": len([r for r in rows if r["overall"] == "AT_RISK"]),
         "incomplete": len([r for r in rows if r["overall"] == "INCOMPLETE"]),
         "without_tests": len([r for r in rows if r["tested"] == "NO_TESTS"]),
+        "with_commits": len([r for r in rows if r.get("commits", 0) > 0]),
         "avg_coverage_pct": (
             round(sum(r["coverage_pct"] for r in rows) / total, 1) if total else 0.0
         ),

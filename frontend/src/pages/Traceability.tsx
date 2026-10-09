@@ -122,6 +122,7 @@ export function Traceability() {
                     "Requirement",
                     "Designed",
                     "Implemented",
+                    "Commits",
                     "Tested",
                     "Bugs",
                     "Deployed",
@@ -167,6 +168,15 @@ export function Traceability() {
                       <span className="ml-1.5 text-xs text-slate-400">
                         {row.implemented_detail}
                       </span>
+                    </td>
+                    <td className="whitespace-nowrap px-2 py-2.5">
+                      {row.commits > 0 ? (
+                        <span className="font-mono text-xs text-emerald-700">
+                          {row.commits} commit{row.commits === 1 ? "" : "s"}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-400">none</span>
+                      )}
                     </td>
                     <td className="whitespace-nowrap px-2 py-2.5">
                       <Badge value={row.tested} />

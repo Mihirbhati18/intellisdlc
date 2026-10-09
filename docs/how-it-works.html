@@ -1,0 +1,1131 @@
+<title>How IntelliSDLC Works</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap">
+
+<style>
+  :root {
+    --paper: #f6f7f9;
+    --surface: #ffffff;
+    --surface-sunk: #eef0f4;
+    --ink: #121721;
+    --muted: #5c6779;
+    --rule: #dde1e8;
+    --rule-strong: #c3cad6;
+    --accent: #4f46e5;
+    --accent-soft: #eceafe;
+    --good: #047857;
+    --good-soft: #e6f4ef;
+    --warn: #b45309;
+    --warn-soft: #fcf1e3;
+    --bad: #be123c;
+    --bad-soft: #fdeaef;
+
+    --sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --serif: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+
+    --measure: 66ch;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0e1219;
+      --surface: #161b24;
+      --surface-sunk: #1b212c;
+      --ink: #e4e8ef;
+      --muted: #929eb2;
+      --rule: #262d3a;
+      --rule-strong: #38414f;
+      --accent: #8b93f8;
+      --accent-soft: #1e2338;
+      --good: #34d399;
+      --good-soft: #10261f;
+      --warn: #fbbf24;
+      --warn-soft: #2a2110;
+      --bad: #fb7185;
+      --bad-soft: #2c1420;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #0e1219;
+    --surface: #161b24;
+    --surface-sunk: #1b212c;
+    --ink: #e4e8ef;
+    --muted: #929eb2;
+    --rule: #262d3a;
+    --rule-strong: #38414f;
+    --accent: #8b93f8;
+    --accent-soft: #1e2338;
+    --good: #34d399;
+    --good-soft: #10261f;
+    --warn: #fbbf24;
+    --warn-soft: #2a2110;
+    --bad: #fb7185;
+    --bad-soft: #2c1420;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.65;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .shell {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 24px 96px;
+  }
+
+  @media (min-width: 1080px) {
+    .shell {
+      grid-template-columns: 210px minmax(0, 1fr);
+      column-gap: 56px;
+      padding-right: 48px;
+    }
+  }
+
+  /* ---------------------------------------------------------- masthead */
+  .masthead {
+    grid-column: 1 / -1;
+    border-bottom: 1px solid var(--rule);
+    padding: 56px 0 32px;
+    margin-bottom: 44px;
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 14px;
+  }
+
+  h1 {
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: clamp(34px, 5.2vw, 52px);
+    line-height: 1.08;
+    letter-spacing: -0.022em;
+    text-wrap: balance;
+    margin: 0 0 18px;
+  }
+
+  .standfirst {
+    font-size: 19px;
+    line-height: 1.6;
+    color: var(--muted);
+    max-width: 58ch;
+    margin: 0;
+  }
+
+  .standfirst strong { color: var(--ink); font-weight: 600; }
+
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    margin-top: 34px;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    overflow: hidden;
+  }
+
+  .fact {
+    flex: 1 1 150px;
+    padding: 14px 18px;
+    border-right: 1px solid var(--rule);
+  }
+  .fact:last-child { border-right: 0; }
+
+  .fact dt {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 5px;
+  }
+  .fact dd {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 15px;
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ------------------------------------------------------------- index */
+  .index { display: none; }
+
+  @media (min-width: 1080px) {
+    .index {
+      display: block;
+      position: sticky;
+      top: 28px;
+      align-self: start;
+      max-height: calc(100vh - 56px);
+      overflow-y: auto;
+      font-family: var(--sans);
+      font-size: 13.5px;
+      line-height: 1.45;
+    }
+    .index p {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 12px;
+    }
+    .index ol {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      border-left: 1px solid var(--rule);
+    }
+    .index a {
+      display: block;
+      padding-left: 14px;
+      margin-left: -1px;
+      border-left: 2px solid transparent;
+      color: var(--muted);
+      text-decoration: none;
+    }
+    .index a:hover { color: var(--accent); border-left-color: var(--accent); }
+  }
+
+  /* ------------------------------------------------------------- prose */
+  main { min-width: 0; }
+
+  section { margin-bottom: 68px; scroll-margin-top: 24px; }
+
+  h2 {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 27px;
+    letter-spacing: -0.015em;
+    line-height: 1.2;
+    text-wrap: balance;
+    margin: 0 0 6px;
+    padding-top: 10px;
+    border-top: 2px solid var(--ink);
+  }
+
+  .kicker {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 20px;
+  }
+
+  h3 {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 18px;
+    letter-spacing: -0.005em;
+    margin: 34px 0 10px;
+  }
+
+  p { max-width: var(--measure); margin: 0 0 17px; }
+  li { max-width: var(--measure); }
+
+  a { color: var(--accent); text-underline-offset: 2px; }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.855em;
+    background: var(--surface-sunk);
+    border-radius: 2px;
+    padding: 1.5px 5px;
+  }
+
+  strong { font-weight: 600; }
+
+  ul, ol { padding-left: 22px; margin: 0 0 17px; }
+  li { margin-bottom: 8px; }
+
+  /* ------------------------------------------------------------ pieces */
+  .lede {
+    font-family: var(--sans);
+    font-size: 17.5px;
+    line-height: 1.55;
+    color: var(--ink);
+    border-left: 3px solid var(--accent);
+    padding-left: 18px;
+    max-width: var(--measure);
+    margin: 0 0 26px;
+  }
+
+  figure {
+    margin: 30px 0;
+    padding: 0;
+  }
+  figure svg {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    color: var(--ink);
+  }
+  figcaption {
+    font-family: var(--sans);
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--muted);
+    margin-top: 12px;
+    max-width: var(--measure);
+  }
+
+  .scroll { overflow-x: auto; margin: 0 0 20px; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 440px;
+    font-family: var(--sans);
+    font-size: 14.5px;
+  }
+  thead th {
+    text-align: left;
+    font-family: var(--mono);
+    font-weight: 500;
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0 14px 8px 0;
+    border-bottom: 1px solid var(--rule-strong);
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 10px 14px 10px 0;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.key { font-family: var(--mono); font-size: 13px; white-space: nowrap; }
+
+  .pill {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    padding: 2px 7px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+  .pill.good { background: var(--good-soft); color: var(--good); }
+  .pill.warn { background: var(--warn-soft); color: var(--warn); }
+  .pill.bad  { background: var(--bad-soft);  color: var(--bad); }
+  .pill.flat { background: var(--surface-sunk); color: var(--muted); }
+
+  .steps {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-width: var(--measure);
+  }
+  .steps li {
+    display: grid;
+    grid-template-columns: 54px minmax(0, 1fr);
+    gap: 16px;
+    padding: 13px 0;
+    border-bottom: 1px solid var(--rule);
+    margin: 0;
+    max-width: none;
+  }
+  .steps li:last-child { border-bottom: 0; }
+  .steps .mark {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    padding-top: 3px;
+  }
+  .steps .what { margin: 0; max-width: none; font-size: 16px; }
+  .steps .what b { font-family: var(--sans); font-weight: 600; }
+
+  .callout {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 20px 22px;
+    margin: 26px 0;
+    max-width: var(--measure);
+  }
+  .callout.caution { border-left: 3px solid var(--warn); }
+  .callout h4 {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 15px;
+    margin: 0 0 8px;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout p { font-size: 15.5px; }
+
+  pre {
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.6;
+    background: var(--surface-sunk);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    margin: 0 0 20px;
+    max-width: var(--measure);
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+
+  .ledger {
+    display: grid;
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 0 0 20px;
+    max-width: var(--measure);
+  }
+  .ledger > div {
+    background: var(--surface);
+    padding: 14px 18px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 14px;
+    align-items: start;
+  }
+  .ledger .claim { font-family: var(--sans); font-size: 15px; margin: 0; max-width: none; }
+  .ledger .note { color: var(--muted); font-size: 13.5px; margin: 4px 0 0; max-width: none; }
+
+  footer {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--rule);
+    padding-top: 22px;
+    margin-top: 10px;
+    font-family: var(--sans);
+    font-size: 13.5px;
+    color: var(--muted);
+  }
+  footer p { max-width: var(--measure); }
+
+  a:focus-visible, .index a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  }
+</style>
+
+<div class="shell">
+
+  <header class="masthead">
+    <p class="eyebrow">IntelliSDLC &middot; Mihir Bhati</p>
+    <h1>How IntelliSDLC Works</h1>
+    <p class="standfirst">
+      A plain-language walkthrough of the whole system: what each piece does, what happens when you
+      click something, how the three intelligence features actually compute their answers &mdash; and
+      <strong>an honest account of what is real and what is demonstration</strong>.
+    </p>
+
+    <dl class="facts">
+      <div class="fact"><dt>Backend</dt><dd>FastAPI + SQLite</dd></div>
+      <div class="fact"><dt>Frontend</dt><dd>React + Vite</dd></div>
+      <div class="fact"><dt>Pages</dt><dd>11</dd></div>
+      <div class="fact"><dt>Database tables</dt><dd>12</dd></div>
+      <div class="fact"><dt>Automated checks</dt><dd>134</dd></div>
+      <div class="fact"><dt>Runs offline</dt><dd>Yes</dd></div>
+    </dl>
+  </header>
+
+  <nav class="index" aria-label="Sections">
+    <p>Contents</p>
+    <ol>
+      <li><a href="#idea">The one big idea</a></li>
+      <li><a href="#halves">The two halves</a></li>
+      <li><a href="#journey">A click, start to finish</a></li>
+      <li><a href="#data">What gets stored</a></li>
+      <li><a href="#roles">Who can do what</a></li>
+      <li><a href="#trace">Traceability matrix</a></li>
+      <li><a href="#risk">Sprint risk predictor</a></li>
+      <li><a href="#agent">AI project agent</a></li>
+      <li><a href="#projects">Many projects</a></li>
+      <li><a href="#testing">How it is tested</a></li>
+      <li><a href="#limits">Real vs demonstration</a></li>
+      <li><a href="#run">Running it</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <!-- ============================================================ -->
+    <section id="idea">
+      <h2>The one big idea</h2>
+      <p class="kicker">Everything hangs off a requirement</p>
+
+      <p class="lede">
+        Most project tools keep your requirements in one place, your bugs in another, and your test
+        results somewhere else again. IntelliSDLC links them all to a single spine, so you can ask
+        one question and actually get an answer: <em>is this requirement really finished?</em>
+      </p>
+
+      <p>
+        A <strong>requirement</strong> is a thing the software must do &mdash; &ldquo;customers can pay by
+        card at checkout&rdquo;. It gets a code like <code>REQ-103</code>. Every other record in the
+        system points back at one of these codes: the tasks built for it, the test cases that check
+        it, the bugs found in it, and the releases that shipped it.
+      </p>
+
+      <p>
+        Because those links exist in the database, the software can work out the answer itself rather
+        than asking a human to keep a spreadsheet up to date.
+      </p>
+
+      <figure>
+        <svg viewBox="0 0 860 330" role="img" aria-label="REQ-103 links out to design tasks, development tasks, test cases, bugs and deployments; the traceability service reads all five links and produces a single verdict of AT RISK.">
+          <defs>
+            <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"></path>
+            </marker>
+            <marker id="arAccent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#4f46e5"></path>
+            </marker>
+          </defs>
+
+          <!-- the requirement -->
+          <rect x="8" y="128" width="168" height="74" rx="3" fill="none" stroke="currentColor" stroke-width="2"></rect>
+          <text x="92" y="157" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="500" fill="currentColor">REQ-103</text>
+          <text x="92" y="177" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="currentColor" opacity="0.72">Online payments</text>
+          <text x="92" y="192" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="currentColor" opacity="0.72">at checkout</text>
+
+          <!-- the five link types -->
+          <rect x="300" y="14" width="190" height="42" rx="3" fill="none" stroke="currentColor" stroke-width="1" opacity="0.55"></rect>
+          <text x="314" y="40" font-family="IBM Plex Sans, sans-serif" font-size="12.5" fill="currentColor">Design task &middot; done</text>
+
+          <rect x="300" y="76" width="190" height="42" rx="3" fill="none" stroke="currentColor" stroke-width="1" opacity="0.55"></rect>
+          <text x="314" y="102" font-family="IBM Plex Sans, sans-serif" font-size="12.5" fill="currentColor">Build tasks &middot; 0 of 3</text>
+
+          <rect x="300" y="138" width="190" height="42" rx="3" fill="none" stroke="currentColor" stroke-width="1" opacity="0.55"></rect>
+          <text x="314" y="164" font-family="IBM Plex Sans, sans-serif" font-size="12.5" fill="currentColor">TC-103 &middot; failed</text>
+
+          <rect x="300" y="200" width="190" height="42" rx="3" fill="none" stroke="currentColor" stroke-width="1" opacity="0.55"></rect>
+          <text x="314" y="226" font-family="IBM Plex Sans, sans-serif" font-size="12.5" fill="currentColor">2 bugs &middot; both critical</text>
+
+          <rect x="300" y="262" width="190" height="42" rx="3" fill="none" stroke="currentColor" stroke-width="1" opacity="0.55"></rect>
+          <text x="314" y="288" font-family="IBM Plex Sans, sans-serif" font-size="12.5" fill="currentColor">Release &middot; staging failed</text>
+
+          <!-- requirement to links -->
+          <path d="M 176 160 C 240 160, 244 35, 298 35" fill="none" stroke="currentColor" stroke-width="1.3" opacity="0.6" marker-end="url(#ar)"></path>
+          <path d="M 176 162 C 240 162, 244 97, 298 97" fill="none" stroke="currentColor" stroke-width="1.3" opacity="0.6" marker-end="url(#ar)"></path>
+          <path d="M 176 165 L 298 159" fill="none" stroke="currentColor" stroke-width="1.3" opacity="0.6" marker-end="url(#ar)"></path>
+          <path d="M 176 168 C 240 168, 244 221, 298 221" fill="none" stroke="currentColor" stroke-width="1.3" opacity="0.6" marker-end="url(#ar)"></path>
+          <path d="M 176 170 C 240 170, 244 283, 298 283" fill="none" stroke="currentColor" stroke-width="1.3" opacity="0.6" marker-end="url(#ar)"></path>
+
+          <text x="206" y="124" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity="0.6">links to</text>
+
+          <!-- the service -->
+          <line x1="520" y1="35" x2="596" y2="150" stroke="#4f46e5" stroke-width="1.2" opacity="0.5"></line>
+          <line x1="520" y1="97" x2="596" y2="155" stroke="#4f46e5" stroke-width="1.2" opacity="0.5"></line>
+          <line x1="520" y1="159" x2="596" y2="160" stroke="#4f46e5" stroke-width="1.2" opacity="0.5"></line>
+          <line x1="520" y1="221" x2="596" y2="165" stroke="#4f46e5" stroke-width="1.2" opacity="0.5"></line>
+          <line x1="520" y1="283" x2="596" y2="170" stroke="#4f46e5" stroke-width="1.2" opacity="0.5"></line>
+
+          <rect x="600" y="128" width="130" height="74" rx="3" fill="none" stroke="#4f46e5" stroke-width="2"></rect>
+          <text x="665" y="154" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#4f46e5">traceability</text>
+          <text x="665" y="170" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#4f46e5">service</text>
+          <text x="665" y="188" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#4f46e5" opacity="0.8">reads the links</text>
+
+          <path d="M 730 165 L 790 165" fill="none" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#arAccent)"></path>
+
+          <rect x="794" y="146" width="60" height="38" rx="3" fill="none" stroke="#be123c" stroke-width="1.6"></rect>
+          <text x="824" y="163" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#be123c">AT</text>
+          <text x="824" y="176" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#be123c">RISK</text>
+        </svg>
+        <figcaption>
+          Nobody types the verdict &ldquo;AT RISK&rdquo; anywhere. The service reads the five kinds of link
+          a requirement has and derives it &mdash; here, because a test failed and two critical bugs are
+          still open.
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="halves">
+      <h2>The two halves</h2>
+      <p class="kicker">A server that knows things, a page that shows them</p>
+
+      <p>
+        The project is two programs that run at the same time and talk over the network, even though
+        both are on your laptop.
+      </p>
+
+      <h3>The backend &mdash; port 8000</h3>
+      <p>
+        Written in Python with <strong>FastAPI</strong>. It owns the database and all the rules. It is
+        the only thing allowed to decide whether you may edit a task, what a sprint&rsquo;s risk score
+        is, or which requirements have no tests. It speaks only JSON &mdash; no web pages.
+      </p>
+      <ul>
+        <li><code>models.py</code> &mdash; defines the 12 database tables</li>
+        <li><code>routers/</code> &mdash; the web addresses (login, requirements, sprints, &hellip;)</li>
+        <li><code>services/</code> &mdash; the thinking: traceability, risk, the AI agent</li>
+        <li><code>security.py</code> &mdash; password hashing and token checks</li>
+        <li><code>seed.py</code> &mdash; the demo project it creates on first run</li>
+      </ul>
+
+      <h3>The frontend &mdash; port 5173</h3>
+      <p>
+        Written in TypeScript with <strong>React</strong>, served by <strong>Vite</strong>. It owns
+        everything you see and nothing you trust. It draws tables, charts and forms, and asks the
+        backend for every number on screen. If it hid a button it shouldn&rsquo;t have, the backend
+        would still refuse the action.
+      </p>
+
+      <div class="callout">
+        <h4>Why the split matters</h4>
+        <p>
+          Hiding a button is a convenience, not a security control. Every permission in IntelliSDLC is
+          enforced on the server, and the test suite proves it by calling the API directly as a
+          developer and checking it gets refused.
+        </p>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="journey">
+      <h2>A click, start to finish</h2>
+      <p class="kicker">What really happens when you open the dashboard</p>
+
+      <figure>
+        <svg viewBox="0 0 860 250" role="img" aria-label="A request travels from the browser through the Vite dev proxy to FastAPI, where a token check, a router and a service read SQLite, then JSON returns along the same path to be drawn as charts.">
+          <defs>
+            <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"></path>
+            </marker>
+            <marker id="ar2a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#4f46e5"></path>
+            </marker>
+          </defs>
+
+          <!-- lane labels -->
+          <text x="8" y="22" font-family="IBM Plex Mono, monospace" font-size="10" letter-spacing="0.08em" fill="currentColor" opacity="0.55">BROWSER &middot; 5173</text>
+          <text x="330" y="22" font-family="IBM Plex Mono, monospace" font-size="10" letter-spacing="0.08em" fill="currentColor" opacity="0.55">BACKEND &middot; 8000</text>
+
+          <line x1="300" y1="30" x2="300" y2="226" stroke="currentColor" stroke-width="1" stroke-dasharray="3 4" opacity="0.35"></line>
+
+          <!-- request row -->
+          <rect x="8" y="48" width="120" height="46" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"></rect>
+          <text x="68" y="69" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" fill="currentColor">Dashboard</text>
+          <text x="68" y="84" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" fill="currentColor">page</text>
+
+          <rect x="166" y="48" width="112" height="46" rx="3" fill="none" stroke="currentColor" stroke-width="1" opacity="0.6"></rect>
+          <text x="222" y="69" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="currentColor">Vite proxy</text>
+          <text x="222" y="84" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity="0.7">/api &rarr; :8000</text>
+
+          <rect x="330" y="48" width="126" height="46" rx="3" fill="none" stroke="currentColor" stroke-width="1" opacity="0.6"></rect>
+          <text x="393" y="69" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="currentColor">Token check</text>
+          <text x="393" y="84" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity="0.7">who are you?</text>
+
+          <rect x="492" y="48" width="126" height="46" rx="3" fill="none" stroke="currentColor" stroke-width="1" opacity="0.6"></rect>
+          <text x="555" y="69" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="currentColor">Router</text>
+          <text x="555" y="84" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity="0.7">may you?</text>
+
+          <rect x="654" y="48" width="126" height="46" rx="3" fill="none" stroke="currentColor" stroke-width="1" opacity="0.6"></rect>
+          <text x="717" y="69" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="currentColor">Service</text>
+          <text x="717" y="84" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity="0.7">counts rows</text>
+
+          <path d="M 128 71 L 162 71" stroke="currentColor" stroke-width="1.3" marker-end="url(#ar2)"></path>
+          <path d="M 278 71 L 326 71" stroke="currentColor" stroke-width="1.3" marker-end="url(#ar2)"></path>
+          <path d="M 456 71 L 488 71" stroke="currentColor" stroke-width="1.3" marker-end="url(#ar2)"></path>
+          <path d="M 618 71 L 650 71" stroke="currentColor" stroke-width="1.3" marker-end="url(#ar2)"></path>
+
+          <text x="60" y="40" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="currentColor" opacity="0.6">GET /api/v1/dashboard</text>
+
+          <!-- database -->
+          <ellipse cx="717" cy="139" rx="46" ry="9" fill="none" stroke="currentColor" stroke-width="1.4"></ellipse>
+          <path d="M 671 139 L 671 164 A 46 9 0 0 0 763 164 L 763 139" fill="none" stroke="currentColor" stroke-width="1.4"></path>
+          <text x="717" y="190" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity="0.75">SQLite file</text>
+          <path d="M 717 96 L 717 126" stroke="currentColor" stroke-width="1.3" marker-end="url(#ar2)"></path>
+
+          <!-- response -->
+          <path d="M 654 210 L 136 210" stroke="#4f46e5" stroke-width="1.5" marker-end="url(#ar2a)"></path>
+          <text x="400" y="202" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#4f46e5">JSON: counts + chart series</text>
+
+          <rect x="8" y="190" width="120" height="40" rx="3" fill="none" stroke="#4f46e5" stroke-width="1.6"></rect>
+          <text x="68" y="215" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="#4f46e5">Charts drawn</text>
+        </svg>
+        <figcaption>
+          One page load, one round trip. The browser never touches the database; the backend never
+          sends HTML.
+        </figcaption>
+      </figure>
+
+      <ol class="steps">
+        <li>
+          <span class="mark">1</span>
+          <p class="what"><b>You sign in.</b> The browser sends your email and password once. The
+          backend compares the password against a <strong>bcrypt hash</strong> &mdash; the real password
+          is never stored, only a one-way scramble of it.</p>
+        </li>
+        <li>
+          <span class="mark">2</span>
+          <p class="what"><b>You get a token.</b> A signed <strong>JWT</strong> that says who you are and
+          what role you have, valid for 12 hours. The browser keeps it and attaches it to every later
+          request automatically.</p>
+        </li>
+        <li>
+          <span class="mark">3</span>
+          <p class="what"><b>The page asks for data.</b> Opening the dashboard fires
+          <code>GET /api/v1/dashboard?project_id=1</code>.</p>
+        </li>
+        <li>
+          <span class="mark">4</span>
+          <p class="what"><b>The backend checks the token, then the rule.</b> First &ldquo;who are
+          you?&rdquo;, then &ldquo;is this allowed for your role?&rdquo;. A developer asking to run the
+          risk predictor is refused here with a <code>403</code>.</p>
+        </li>
+        <li>
+          <span class="mark">5</span>
+          <p class="what"><b>It counts and replies.</b> One JSON object with the headline numbers and
+          both chart series &mdash; so the dashboard is a single round trip, not twelve.</p>
+        </li>
+        <li>
+          <span class="mark">6</span>
+          <p class="what"><b>React draws it.</b> Numbers into the tiles, arrays into the bar charts.
+          If the token had expired, the browser would have cleared it and bounced you to the login
+          page instead.</p>
+        </li>
+      </ol>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="data">
+      <h2>What gets stored</h2>
+      <p class="kicker">Twelve tables, in plain words</p>
+
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr><th>Table</th><th>What it holds</th><th>Points at</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="key">Project</td><td>A piece of work, like &ldquo;ShopEase&rdquo;</td><td class="num">&mdash;</td></tr>
+            <tr><td class="key">User</td><td>A person, their role, skills and weekly capacity</td><td class="num">&mdash;</td></tr>
+            <tr><td class="key">Requirement</td><td>Something the software must do &middot; <code>REQ-101</code></td><td class="num">Project</td></tr>
+            <tr><td class="key">RequirementVersion</td><td>One recorded change to a requirement, with a summary</td><td class="num">Requirement</td></tr>
+            <tr><td class="key">Sprint</td><td>A time-boxed chunk of work with a start and end date</td><td class="num">Project</td></tr>
+            <tr><td class="key">Task</td><td>A unit of work &mdash; design, development or testing</td><td class="num">Sprint, Requirement</td></tr>
+            <tr><td class="key">TimeLog</td><td>Hours a developer booked against a task</td><td class="num">Task, User</td></tr>
+            <tr><td class="key">Bug</td><td>A defect, with severity and status &middot; <code>BUG-101</code></td><td class="num">Requirement, Sprint</td></tr>
+            <tr><td class="key">TestCase</td><td>A check and its expected result &middot; <code>TC-101</code></td><td class="num">Requirement</td></tr>
+            <tr><td class="key">Deployment</td><td>A release to dev, staging or production</td><td class="num">Project, Sprint</td></tr>
+            <tr><td class="key">DeploymentRequirement</td><td>Which requirements shipped in which release</td><td class="num">Both</td></tr>
+            <tr><td class="key">RiskPrediction</td><td>A saved risk score, so you have a history</td><td class="num">Sprint</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>The versioning rule</h3>
+      <p>
+        Change a requirement&rsquo;s <strong>title, description, priority or status</strong> and the
+        backend bumps its version number and writes a history row describing the change, such as
+        <code>priority: HIGH &rarr; CRITICAL</code>. Change anything else and no version is cut, so the
+        history stays meaningful instead of filling with noise.
+      </p>
+      <p>
+        This is why <code>REQ-103</code> sits at v3 in the demo: it was raised to CRITICAL and then moved
+        into development, both during the live sprint. Those same two edits are what the risk
+        predictor later counts as scope churn.
+      </p>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="roles">
+      <h2>Who can do what</h2>
+      <p class="kicker">Four roles, enforced on the server</p>
+
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr><th>Action</th><th>Admin</th><th>PM</th><th>Developer</th><th>QA</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Read every page</td><td><span class="pill good">yes</span></td><td><span class="pill good">yes</span></td><td><span class="pill good">yes</span></td><td><span class="pill good">yes</span></td></tr>
+            <tr><td>Create requirements, sprints, releases</td><td><span class="pill good">yes</span></td><td><span class="pill good">yes</span></td><td><span class="pill flat">no</span></td><td><span class="pill flat">no</span></td></tr>
+            <tr><td>Change a task&rsquo;s status</td><td><span class="pill good">any</span></td><td><span class="pill good">any</span></td><td><span class="pill warn">own only</span></td><td><span class="pill flat">no</span></td></tr>
+            <tr><td>Log time on a task</td><td><span class="pill good">any</span></td><td><span class="pill good">any</span></td><td><span class="pill warn">own only</span></td><td><span class="pill flat">no</span></td></tr>
+            <tr><td>Create or edit bugs and test cases</td><td><span class="pill good">yes</span></td><td><span class="pill good">yes</span></td><td><span class="pill flat">no</span></td><td><span class="pill good">yes</span></td></tr>
+            <tr><td>Run the risk predictor</td><td><span class="pill good">yes</span></td><td><span class="pill good">yes</span></td><td><span class="pill flat">no</span></td><td><span class="pill flat">no</span></td></tr>
+            <tr><td>Delete a project</td><td><span class="pill good">yes</span></td><td><span class="pill flat">no</span></td><td><span class="pill flat">no</span></td><td><span class="pill flat">no</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        Sign in as a developer and the Risk Predictor disappears from the sidebar entirely; typing its
+        address directly bounces you back to the dashboard; and on a sprint board, other people&rsquo;s
+        cards read <em>Read only</em> while yours keep their status dropdown.
+      </p>
+      <p>
+        All six demo accounts share the password <code>Demo@123</code>.
+      </p>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="trace">
+      <h2>Traceability matrix</h2>
+      <p class="kicker">Feature one &middot; derived, never typed</p>
+
+      <p>
+        For every requirement the service works out five stages from the links in the database, then
+        reduces them to one verdict.
+      </p>
+
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr><th>Stage</th><th>How it is decided</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="key">Designed</td><td>A design reference is recorded, or a design task is finished</td></tr>
+            <tr><td class="key">Implemented</td><td>How many development tasks are done &mdash; none, some, or all</td></tr>
+            <tr><td class="key">Tested</td><td>No tests at all / any failing / all passing / still pending</td></tr>
+            <tr><td class="key">Bugs</td><td>Open bug count, and how many of those are critical</td></tr>
+            <tr><td class="key">Deployed</td><td>The furthest environment a successful release reached</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>Those five collapse into the overall verdict:</p>
+
+      <div class="ledger">
+        <div>
+          <div>
+            <p class="claim">Every stage satisfied and shipped to production</p>
+            <p class="note">In the demo, only REQ-101 &mdash; login &mdash; qualifies.</p>
+          </div>
+          <span class="pill good">COMPLETE</span>
+        </div>
+        <div>
+          <div>
+            <p class="claim">A test is failing, or a critical bug is open</p>
+            <p class="note">REQ-103 hits both: TC-103 failed and two critical bugs are open.</p>
+          </div>
+          <span class="pill bad">AT RISK</span>
+        </div>
+        <div>
+          <div>
+            <p class="claim">Still on its way, nothing alarming yet</p>
+            <p class="note">REQ-106 has no test cases written at all.</p>
+          </div>
+          <span class="pill warn">INCOMPLETE</span>
+        </div>
+      </div>
+
+      <p>
+        Coverage is simply 20% per satisfied stage, so a requirement reading 100% is one that is
+        designed, built, passing, bug-free and in production.
+      </p>
+
+      <div class="callout">
+        <h4>Why this is the useful bit</h4>
+        <p>
+          Mark one new test case as passed and the matrix changes on the next page load &mdash; the
+          &ldquo;without tests&rdquo; count drops immediately. Nothing is cached and no one maintains it
+          by hand.
+        </p>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="risk">
+      <h2>Sprint risk predictor</h2>
+      <p class="kicker">Feature two &middot; machine learning, with its working shown</p>
+
+      <p>
+        Press <strong>Predict risk</strong> and the backend runs five steps. They are numbered to match
+        the data-flow diagram in the project report.
+      </p>
+
+      <figure>
+        <svg viewBox="0 0 860 150" role="img" aria-label="Five pipeline stages: collect live sprint data, build the feature vector, run the model, explain the drivers, and save the prediction.">
+          <defs>
+            <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"></path>
+            </marker>
+          </defs>
+          <rect x="4" y="44" width="148" height="56" rx="3" fill="none" stroke="currentColor" stroke-width="1.4"></rect>
+          <text x="78" y="36" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#4f46e5">7.1</text>
+          <text x="78" y="70" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" fill="currentColor">Read the sprint</text>
+          <text x="78" y="87" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" fill="currentColor">as it is now</text>
+
+          <rect x="178" y="44" width="134" height="56" rx="3" fill="none" stroke="currentColor" stroke-width="1.4"></rect>
+          <text x="245" y="36" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#4f46e5">7.2</text>
+          <text x="245" y="70" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" fill="currentColor">Ten numbers</text>
+          <text x="245" y="87" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" fill="currentColor">in a row</text>
+
+          <rect x="338" y="44" width="134" height="56" rx="3" fill="none" stroke="currentColor" stroke-width="1.4"></rect>
+          <text x="405" y="36" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#4f46e5">7.3</text>
+          <text x="405" y="70" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" fill="currentColor">Model gives</text>
+          <text x="405" y="87" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" fill="currentColor">a score 0&ndash;100</text>
+
+          <rect x="498" y="44" width="148" height="56" rx="3" fill="none" stroke="#4f46e5" stroke-width="1.8"></rect>
+          <text x="572" y="36" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#4f46e5">7.4</text>
+          <text x="572" y="70" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#4f46e5">Why it said that</text>
+          <text x="572" y="87" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" fill="#4f46e5">top three drivers</text>
+
+          <rect x="672" y="44" width="134" height="56" rx="3" fill="none" stroke="currentColor" stroke-width="1.4"></rect>
+          <text x="739" y="36" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#4f46e5">7.5</text>
+          <text x="739" y="70" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" fill="currentColor">Save it to</text>
+          <text x="739" y="87" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" fill="currentColor">the history</text>
+
+          <path d="M 152 72 L 174 72" stroke="currentColor" stroke-width="1.3" marker-end="url(#ar3)"></path>
+          <path d="M 312 72 L 334 72" stroke="currentColor" stroke-width="1.3" marker-end="url(#ar3)"></path>
+          <path d="M 472 72 L 494 72" stroke="currentColor" stroke-width="1.3" marker-end="url(#ar3)"></path>
+          <path d="M 646 72 L 668 72" stroke="currentColor" stroke-width="1.3" marker-end="url(#ar3)"></path>
+
+          <text x="430" y="130" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="currentColor" opacity="0.65">step 7.4 is the one that makes the score arguable rather than magic</text>
+        </svg>
+        <figcaption>
+          The pipeline reads the sprint fresh every time you press the button &mdash; nothing is stored
+          between runs except the final score.
+        </figcaption>
+      </figure>
+
+      <h3>The ten things it looks at</h3>
+      <p>Every one is counted from the database at that moment. The values shown are Sprint 3 in the demo.</p>
+
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr><th>What it measures</th><th>Where it comes from</th><th>Value</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Open bugs</td><td>Bugs in this sprint not closed or resolved</td><td class="num">3</td></tr>
+            <tr><td>Critical bugs</td><td>Of those, the ones marked critical</td><td class="num">2</td></tr>
+            <tr><td>Build failure rate</td><td>Failed releases &divide; all releases</td><td class="num">0.25</td></tr>
+            <tr><td>Scope churn</td><td>Requirement edits made during the sprint</td><td class="num">3</td></tr>
+            <tr><td>Developer load</td><td>Unfinished hours &divide; capacity, averaged</td><td class="num">0.70</td></tr>
+            <tr><td>Carried over</td><td>Tasks the previous sprint left unfinished</td><td class="num">3</td></tr>
+            <tr><td>Days remaining</td><td>Sprint end date minus today</td><td class="num">4</td></tr>
+            <tr><td>Total tasks</td><td>Everything in the sprint</td><td class="num">8</td></tr>
+            <tr><td>Completed tasks</td><td>Marked done</td><td class="num">2</td></tr>
+            <tr><td>Completion ratio</td><td>Done &divide; total</td><td class="num">0.25</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>The model</h3>
+      <p>
+        A <strong>logistic regression</strong> &mdash; the simplest honest choice for a yes/no question
+        like &ldquo;will this sprint slip?&rdquo;. It is trained once by
+        <code>ml/train_model.py</code> on 2,000 example sprints, saved to a file, and loaded when the
+        backend starts. Scores below 40 are <span class="pill good">LOW</span>, below 70
+        <span class="pill warn">MEDIUM</span>, and above that <span class="pill bad">HIGH</span>.
+      </p>
+
+      <h3>How it explains itself</h3>
+      <p>
+        This is the part worth understanding. Each of the ten numbers is standardised and multiplied by
+        the weight the model learned for it. That product is how much that one factor pushed
+        <em>this</em> score up or down. The top three are shown as a bar chart with a suggested action
+        each. The chart is not decoration &mdash; it is the arithmetic behind the number.
+      </p>
+      <p>
+        For Sprint 3 that comes out at <strong>89, HIGH</strong>, driven by the two critical bugs, a
+        completion ratio of 0.25, and the scope changes mid-sprint. Sprint 4, with no bugs and plenty
+        of time, scores <strong>19, LOW</strong>.
+      </p>
+
+      <div class="callout caution">
+        <h4>Be straight about this in a viva</h4>
+        <p>
+          The 2,000 training sprints are synthetic &mdash; generated from a formula written for the
+          project. The model therefore largely learned that formula back. The pipeline, the live
+          feature extraction and the explainability are all genuine, but the reported accuracy of
+          <strong>0.735</strong> describes synthetic data and is not evidence about real sprints. Saying
+          so first is a much stronger answer than being asked.
+        </p>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="agent">
+      <h2>AI project agent</h2>
+      <p class="kicker">Feature three &middot; works with no internet</p>
+
+      <p>
+        A chat box that answers questions about the project. It runs six steps, again numbered to match
+        the report.
+      </p>
+
+      <ol class="steps">
+        <li><span class="mark">8.1</span><p class="what"><b>Take the question.</b></p></li>
+        <li><span class="mark">8.2</span><p class="what"><b>Sort it into a topic</b> by keywords &mdash;
+          bugs, tests, sprints, requirements, releases, risk or traceability. More specific topics win
+          ties, so &ldquo;what is the risk of the active sprint&rdquo; is treated as a risk question,
+          not a sprint one.</p></li>
+        <li><span class="mark">8.3</span><p class="what"><b>Fetch only the relevant records</b>, capped
+          at 30 of each kind.</p></li>
+        <li><span class="mark">8.4</span><p class="what"><b>Clean them.</b> Password hashes and API keys
+          are dropped entirely, email addresses are masked, and anything shaped like a secret key is
+          replaced.</p></li>
+        <li><span class="mark">8.5</span><p class="what"><b>Answer.</b> With a Gemini key configured it
+          asks Gemini, instructed to use only the supplied records and cite IDs. With no key &mdash; or
+          if the call fails &mdash; it falls back to <strong>offline mode</strong> and composes the
+          answer from the records itself.</p></li>
+        <li><span class="mark">8.6</span><p class="what"><b>Return the answer</b> with a badge saying
+          which mode produced it and which records it used.</p></li>
+      </ol>
+
+      <p>
+        Offline mode is the default and the demo never needs a network. Ask <em>&ldquo;which critical
+        bugs are still open?&rdquo;</em> and it replies with BUG-101 and BUG-103 by name, because it
+        read them out of the database rather than inventing them.
+      </p>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="projects">
+      <h2>Many projects</h2>
+      <p class="kicker">Added after the first build</p>
+
+      <p>
+        The system holds any number of projects side by side. The <strong>Projects</strong> page creates
+        and lists them; the switcher at the top of the sidebar changes which one you are working in,
+        and the choice is remembered when you sign back in.
+      </p>
+      <p>
+        Every page &mdash; requirements, sprints, bugs, tests, releases, the dashboard, the matrix, the
+        predictor and the chat &mdash; is scoped to the open project, so two projects never see each
+        other&rsquo;s data. A new project starts genuinely empty, and you fill it from the normal pages.
+      </p>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="testing">
+      <h2>How it is tested</h2>
+      <p class="kicker">134 automated checks</p>
+
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr><th>Suite</th><th>Checks</th><th>What it proves</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="key">pytest</td><td class="num">21</td><td>Login and refusals, role permissions, the versioning rule, the three traceability verdicts, Sprint 3 HIGH and Sprint 4 LOW, redaction, the offline agent</td></tr>
+            <tr><td class="key">drive.mjs</td><td class="num">84</td><td>Every page clicked through in a real browser as both a manager and a developer</td></tr>
+            <tr><td class="key">drive-projects.mjs</td><td class="num">16</td><td>Creates a second project through the UI and proves the data stays separate</td></tr>
+            <tr><td class="key">drive-edge.mjs</td><td class="num">13</td><td>Expired tokens, empty states, a QA write flowing into the matrix</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        The browser suites drive headless Chrome over the DevTools Protocol with no testing library at
+        all &mdash; Node&rsquo;s built-in WebSocket is enough. They assert on what is actually on screen
+        and fail if the console logs an error.
+      </p>
+      <p>
+        That matters because they caught real defects that the unit tests could not see: a traceability
+        column pushed off the right edge of the screen, badges wrapping mid-word, an unhelpful error
+        message when the backend was down, and a redirect that fired before data had loaded.
+      </p>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="limits">
+      <h2>Real vs demonstration</h2>
+      <p class="kicker">The part worth knowing before anyone asks</p>
+
+      <p>
+        The demo data is seed data, not hard-coded logic. Clear it out, enter your own project, and the
+        machinery below keeps working. But not everything is equally real.
+      </p>
+
+      <h3>Genuinely working</h3>
+      <ul>
+        <li>The database, the links between records, and all the CRUD</li>
+        <li>The traceability matrix &mdash; computed from your data, nothing special-cased</li>
+        <li>Role permissions, enforced server-side</li>
+        <li>Requirement versioning with real change summaries</li>
+        <li>The offline AI agent, which genuinely reads your records</li>
+        <li>Multiple projects with properly isolated data</li>
+      </ul>
+
+      <h3>Demonstration only</h3>
+      <ul>
+        <li><strong>The risk model&rsquo;s training data is synthetic</strong>, so the score on a real
+          sprint would be computed from chosen weights, not learned reality</li>
+        <li><strong>Nothing reads your source code.</strong> No git, no CI, no repository link</li>
+        <li>Sign-in is demo-grade: tokens in browser storage, no refresh, no registration or password
+          reset, no rate limiting</li>
+        <li>SQLite with no pagination &mdash; fine for a class project, not for thousands of records</li>
+      </ul>
+
+      <div class="callout caution">
+        <h4>The honest gap</h4>
+        <p>
+          &ldquo;Implemented: 3/3&rdquo; means a person ticked three tasks. &ldquo;Build failure rate
+          0.25&rdquo; means someone typed four release rows, one marked failed. Every signal is
+          self-reported, so the matrix is exactly as truthful as the people updating it. A production
+          tool closes that loop by reading commits from git and build results from CI &mdash; that
+          integration, not more screens, is what would make this real.
+        </p>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="run">
+      <h2>Running it</h2>
+      <p class="kicker">Two terminals</p>
+
+      <pre><code>cd backend
+.venv\Scripts\activate
+uvicorn app.main:app --reload        # http://localhost:8000/docs
+
+cd frontend
+npm run dev                          # http://localhost:5173</code></pre>
+
+      <p>
+        The database builds and seeds itself the first time the backend starts. To rebuild the demo
+        data from scratch, run <code>python -m app.seed --reset</code>. Sign in with
+        <code>pm@intellisdlc.dev</code> and <code>Demo@123</code>, or use the quick-fill buttons on the
+        login page.
+      </p>
+    </section>
+
+  </main>
+
+  <footer>
+    <p>
+      IntelliSDLC &mdash; an SDLC management platform linking requirements, sprints, tasks, bugs, test
+      cases and deployments, with a sprint risk predictor, a traceability matrix and a project chat
+      agent. Built by Mihir Bhati. Runs entirely offline with no API key.
+    </p>
+  </footer>
+
+</div>

@@ -3,6 +3,7 @@ import {
   ChevronDown,
   ClipboardList,
   FolderKanban,
+  GitCommitHorizontal,
   FlaskConical,
   LayoutDashboard,
   LogOut,
@@ -33,6 +34,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/sprints", label: "Sprints", icon: <SquareKanban className="h-4 w-4" /> },
   { to: "/bugs", label: "Bugs", icon: <BugIcon className="h-4 w-4" /> },
   { to: "/test-cases", label: "Test Cases", icon: <FlaskConical className="h-4 w-4" /> },
+  { to: "/code", label: "Code", icon: <GitCommitHorizontal className="h-4 w-4" /> },
   { to: "/deployments", label: "Deployments", icon: <Rocket className="h-4 w-4" /> },
   { to: "/traceability", label: "Traceability", icon: <Network className="h-4 w-4" /> },
   {
