@@ -282,6 +282,7 @@ export interface Repository {
   branch: string;
   last_synced_at: string | null;
   commit_count: number;
+  auto_update_status: boolean;
 }
 
 export interface Commit {
@@ -307,6 +308,40 @@ export interface SyncResult {
   links_written: number;
   unmatched_codes: string[];
   last_synced_at: string;
+  auto_update_status: boolean;
+  status_updates: StatusUpdate[];
+}
+
+export interface StatusUpdate {
+  requirement_id: number;
+  req_code: string;
+  from_status: string;
+  to_status: string;
+  commit: string;
+  commit_subject: string;
+}
+
+export interface EvidenceRow {
+  requirement_id: number;
+  req_code: string;
+  title: string;
+  status: string;
+  commits: number;
+  primary_commits: number;
+  issue: "STATUS_BEHIND" | "NO_EVIDENCE" | null;
+  detail: string;
+  suggested_status: string | null;
+}
+
+export interface EvidenceReport {
+  project_id: number;
+  rows: EvidenceRow[];
+  summary: {
+    total: number;
+    status_behind: number;
+    no_evidence: number;
+    agreeing: number;
+  };
 }
 
 export interface RequirementLinks {

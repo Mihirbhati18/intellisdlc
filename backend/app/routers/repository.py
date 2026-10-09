@@ -5,7 +5,15 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from ..database import get_session
-from ..models import Commit, CommitRequirement, Project, Repository, Requirement, User
+from ..models import (
+    Commit,
+    CommitRequirement,
+    Project,
+    Repository,
+    Requirement,
+    RequirementVersion,
+    User,
+)
 from ..security import get_current_user, is_manager
 from ..services import repository as repo_service
 
@@ -16,6 +24,12 @@ class RepositoryIn(BaseModel):
     project_id: int
     name: str
     path: str
+    auto_update_status: bool = False
+
+
+class RepositoryUpdate(BaseModel):
+    name: Optional[str] = None
+    auto_update_status: Optional[bool] = None
 
 
 def _require_manager(user: User) -> None:
@@ -64,6 +78,7 @@ def create_repository(
         name=payload.name.strip() or resolved.name,
         path=str(resolved),
         branch=repo_service.current_branch(resolved),
+        auto_update_status=payload.auto_update_status,
     )
     session.add(repository)
     session.commit()
@@ -161,3 +176,74 @@ def requirement_commits(
         _commit_out(commit, [requirement.req_code])
         for commit in repo_service.commits_for_requirement(session, item_id)
     ]
+
+@router.patch("/repositories/{item_id}")
+def update_repository(
+    item_id: int,
+    payload: RepositoryUpdate,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    _require_manager(user)
+    repository = session.get(Repository, item_id)
+    if repository is None:
+        raise HTTPException(status_code=404, detail=f"Repository {item_id} not found")
+    if payload.name is not None:
+        repository.name = payload.name.strip() or repository.name
+    if payload.auto_update_status is not None:
+        repository.auto_update_status = payload.auto_update_status
+    session.add(repository)
+    session.commit()
+    session.refresh(repository)
+    return repository
+
+
+@router.get("/evidence")
+def evidence(
+    project_id: Optional[int] = None,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Where recorded status and committed code disagree. Read-only."""
+    if project_id is None:
+        first = session.exec(select(Project).order_by(Project.id)).first()
+        project_id = first.id if first else 0
+    return repo_service.evidence_report(session, project_id)
+
+
+class ApplyIn(BaseModel):
+    requirement_id: int
+    status: str
+
+
+@router.post("/evidence/apply")
+def apply_evidence(
+    payload: ApplyIn,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """The manual counterpart to auto-advance: a person accepts one suggestion."""
+    _require_manager(user)
+    requirement = session.get(Requirement, payload.requirement_id)
+    if requirement is None:
+        raise HTTPException(
+            status_code=404, detail=f"Requirement {payload.requirement_id} not found"
+        )
+    previous = requirement.status.value
+    if previous == payload.status:
+        return requirement
+
+    requirement.status = payload.status
+    requirement.version += 1
+    session.add(requirement)
+    session.add(
+        RequirementVersion(
+            requirement_id=requirement.id,
+            version=requirement.version,
+            changed_by=user.id,
+            summary=f"status: {previous} -> {payload.status} (accepted from commit evidence)",
+        )
+    )
+    session.commit()
+    session.refresh(requirement)
+    return requirement

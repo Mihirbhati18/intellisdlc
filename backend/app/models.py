@@ -229,6 +229,8 @@ class Repository(SQLModel, table=True):
     branch: str = Field(default="")
     last_synced_at: Optional[datetime] = Field(default=None)
     commit_count: int = Field(default=0)
+    # Off by default: status is the team's to set until they opt in.
+    auto_update_status: bool = Field(default=False)
 
 
 class Commit(SQLModel, table=True):
@@ -246,3 +248,7 @@ class Commit(SQLModel, table=True):
 class CommitRequirement(SQLModel, table=True):
     commit_id: int = Field(foreign_key="commit.id", primary_key=True)
     requirement_id: int = Field(foreign_key="requirement.id", primary_key=True)
+    # True when the code is in the subject line - the commit is work on that
+    # requirement. False when it only appears in the body, which is a passing
+    # mention and must never drive an automatic status change.
+    primary: bool = Field(default=False)

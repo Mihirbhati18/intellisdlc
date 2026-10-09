@@ -1,4 +1,13 @@
-import { GitBranch, GitCommitHorizontal, Link2, Plug, RefreshCw, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  GitBranch,
+  GitCommitHorizontal,
+  Link2,
+  Plug,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -6,6 +15,7 @@ import {
   api,
   errorMessage,
   type Commit,
+  type EvidenceReport,
   type Repository,
   type SyncResult,
 } from "../api";
@@ -45,6 +55,9 @@ export function Code() {
   const commits = useFetch<Commit[]>(
     projectId ? `/commits?project_id=${projectId}&limit=100` : null,
   );
+  const evidence = useFetch<EvidenceReport>(
+    projectId ? `/evidence?project_id=${projectId}` : null,
+  );
 
   const [connecting, setConnecting] = useState(false);
   const [form, setForm] = useState({ name: "", path: "" });
@@ -54,6 +67,8 @@ export function Code() {
   const [syncing, setSyncing] = useState<number | null>(null);
   const [syncError, setSyncError] = useState("");
   const [result, setResult] = useState<SyncResult | null>(null);
+  const [applying, setApplying] = useState<number | null>(null);
+  const [togglingId, setTogglingId] = useState<number | null>(null);
 
   const repos = repositories.data ?? [];
   const rows = commits.data ?? [];
@@ -89,6 +104,7 @@ export function Code() {
       setResult(response.data);
       repositories.reload();
       commits.reload();
+      evidence.reload();
     } catch (caught) {
       setSyncError(errorMessage(caught));
     } finally {
@@ -103,8 +119,34 @@ export function Code() {
       setResult(null);
       repositories.reload();
       commits.reload();
+      evidence.reload();
     } catch (caught) {
       setSyncError(errorMessage(caught));
+    }
+  }
+
+  async function setAuto(repository: Repository, value: boolean) {
+    setTogglingId(repository.id);
+    setSyncError("");
+    try {
+      await api.patch(`/repositories/${repository.id}`, { auto_update_status: value });
+      repositories.reload();
+    } catch (caught) {
+      setSyncError(errorMessage(caught));
+    } finally {
+      setTogglingId(null);
+    }
+  }
+
+  async function applySuggestion(requirementId: number, status: string) {
+    setApplying(requirementId);
+    try {
+      await api.post("/evidence/apply", { requirement_id: requirementId, status });
+      evidence.reload();
+    } catch (caught) {
+      setSyncError(errorMessage(caught));
+    } finally {
+      setApplying(null);
     }
   }
 
@@ -187,6 +229,34 @@ export function Code() {
                 )}
               </div>
 
+              <div className="mt-4 flex flex-wrap items-start justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-800">
+                    Update requirement status automatically
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    When a requirement gets its first commit, move it to IN DEVELOPMENT and record
+                    the commit in its history. Off means nothing changes without you.
+                  </p>
+                </div>
+                <label className="inline-flex shrink-0 cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={repository.auto_update_status}
+                    disabled={!isManager || togglingId === repository.id}
+                    onChange={(event) => void setAuto(repository, event.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 text-indigo-600"
+                  />
+                  <span
+                    className={`text-sm font-medium ${
+                      repository.auto_update_status ? "text-indigo-700" : "text-slate-500"
+                    }`}
+                  >
+                    {repository.auto_update_status ? "Automatic" : "Manual"}
+                  </span>
+                </label>
+              </div>
+
               {syncError && <p className="mt-3 text-sm text-rose-600">{syncError}</p>}
 
               {result && result.repository_id === repository.id && (
@@ -218,6 +288,22 @@ export function Code() {
                       Mentioned but not in this project:{" "}
                       {result.unmatched_codes.join(", ")}
                     </p>
+                  )}
+                  {result.status_updates.length > 0 && (
+                    <div className="sm:col-span-4">
+                      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                        Statuses advanced
+                      </p>
+                      <ul className="space-y-0.5">
+                        {result.status_updates.map((update) => (
+                          <li key={update.req_code} className="text-xs text-emerald-800">
+                            <span className="font-mono">{update.req_code}</span>{" "}
+                            {update.from_status} &rarr; {update.to_status} (commit{" "}
+                            <span className="font-mono">{update.commit}</span>)
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
                 </div>
               )}
@@ -279,6 +365,80 @@ export function Code() {
             )}
           </Card>
 
+          <Card
+            title="Evidence check"
+            actions={
+              evidence.data ? (
+                <span className="font-mono text-xs text-slate-400">
+                  {evidence.data.summary.agreeing} of {evidence.data.summary.total} agree
+                </span>
+              ) : undefined
+            }
+          >
+            {evidence.loading ? (
+              <Loading label="Comparing status with commits" />
+            ) : !evidence.data ? null : evidence.data.rows.filter((row) => row.issue).length ===
+              0 ? (
+              <EmptyState
+                message="Status and commits agree everywhere"
+                hint="Nothing here needs a decision."
+              />
+            ) : (
+              <>
+                <p className="mb-4 text-sm text-slate-500">
+                  Where the recorded status and the committed code disagree. Nothing changes until
+                  you choose it.
+                </p>
+                <ul className="divide-y divide-slate-100">
+                  {evidence.data.rows
+                    .filter((row) => row.issue)
+                    .map((row) => (
+                      <li
+                        key={row.requirement_id}
+                        className="flex flex-wrap items-start justify-between gap-3 py-3"
+                      >
+                        <div className="flex min-w-0 gap-3">
+                          <AlertTriangle
+                            className={`mt-0.5 h-4 w-4 shrink-0 ${
+                              row.issue === "NO_EVIDENCE" ? "text-amber-500" : "text-indigo-500"
+                            }`}
+                          />
+                          <div className="min-w-0">
+                            <p className="text-sm text-slate-800">
+                              <Link
+                                to={`/requirements/${row.requirement_id}`}
+                                className="font-mono font-medium text-indigo-600 hover:underline"
+                              >
+                                {row.req_code}
+                              </Link>{" "}
+                              {row.title}
+                            </p>
+                            <p className="mt-0.5 text-xs text-slate-500">{row.detail}</p>
+                          </div>
+                        </div>
+                        {row.suggested_status ? (
+                          <Button
+                            variant="secondary"
+                            disabled={applying === row.requirement_id}
+                            onClick={() =>
+                              void applySuggestion(row.requirement_id, row.suggested_status!)
+                            }
+                          >
+                            <Check className="h-4 w-4" />
+                            {applying === row.requirement_id
+                              ? "Applying"
+                              : `Set ${row.suggested_status.replaceAll("_", " ")}`}
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-slate-400">needs a human decision</span>
+                        )}
+                      </li>
+                    ))}
+                </ul>
+              </>
+            )}
+          </Card>
+
           <Card title="How linking works">
             <p className="text-sm text-slate-600">
               A commit is linked to a requirement when its message names the code. Writing{" "}
@@ -288,6 +448,12 @@ export function Code() {
               links that commit to REQ-103 on the next sync. One commit can name several
               requirements, and syncing again rebuilds the links, so correcting a message fixes the
               record.
+            </p>
+            <p className="mt-3 text-sm text-slate-600">
+              A code in the <strong>subject line</strong> counts as work on that requirement. A code
+              that only appears in the body is treated as a passing mention and never drives an
+              automatic status change &mdash; so discussing REQ-103 in a commit about something else
+              cannot quietly move it.
             </p>
             <p className="mt-3 text-sm text-slate-600">
               Nothing is pushed or written to the repository &mdash; IntelliSDLC only reads{" "}

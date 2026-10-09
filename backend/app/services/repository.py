@@ -19,7 +19,14 @@ from typing import Optional
 
 from sqlmodel import Session, select
 
-from ..models import Commit, CommitRequirement, Repository, Requirement
+from ..models import (
+    Commit,
+    CommitRequirement,
+    Repository,
+    Requirement,
+    RequirementStatus,
+    RequirementVersion,
+)
 
 # Commit messages opt in by naming a requirement: "REQ-103 add refund handling".
 REQUIREMENT_CODE_RE = re.compile(r"\b(REQ-\d+)\b", re.IGNORECASE)
@@ -30,6 +37,16 @@ RECORD_SEP = "\x1e"
 
 GIT_TIMEOUT_SECONDS = 30
 MAX_COMMITS = 500
+
+# A first commit proves work has started, so these may be advanced automatically.
+# TESTED and DEPLOYED are deliberately absent: a commit says code was written,
+# not that it passed or shipped, and claiming otherwise would be the same false
+# confidence this feature exists to remove.
+NOT_STARTED_STATUSES = (
+    RequirementStatus.DRAFT,
+    RequirementStatus.UNDER_REVIEW,
+    RequirementStatus.APPROVED,
+)
 
 
 class GitError(RuntimeError):
@@ -152,6 +169,7 @@ def sync_repository(session: Session, repository: Repository) -> dict:
     added = 0
     linked = 0
     unmatched_codes: set[str] = set()
+    primary_links: dict[int, list[Commit]] = {}
 
     for data in commits:
         commit = existing.get(data["sha"])
@@ -177,16 +195,30 @@ def sync_repository(session: Session, repository: Repository) -> dict:
         ).all():
             session.delete(link)
 
+        subject_codes = set(extract_requirement_codes(data["subject"]))
         for code in extract_requirement_codes(f"{data['subject']} {data['body']}"):
             requirement = requirement_by_code.get(code)
             if requirement is None:
                 unmatched_codes.add(code)
                 continue
+            is_primary = code in subject_codes
             session.add(
-                CommitRequirement(commit_id=commit.id, requirement_id=requirement.id)
+                CommitRequirement(
+                    commit_id=commit.id,
+                    requirement_id=requirement.id,
+                    primary=is_primary,
+                )
             )
             linked += 1
+            if is_primary:
+                primary_links.setdefault(requirement.id, []).append(commit)
     session.commit()
+
+    status_updates: list[dict] = []
+    if repository.auto_update_status:
+        status_updates = _advance_started_requirements(
+            session, requirement_by_code, primary_links
+        )
 
     repository.branch = current_branch(path)
     repository.last_synced_at = datetime.utcnow()
@@ -204,6 +236,8 @@ def sync_repository(session: Session, repository: Repository) -> dict:
         "links_written": linked,
         "unmatched_codes": sorted(unmatched_codes),
         "last_synced_at": repository.last_synced_at,
+        "auto_update_status": repository.auto_update_status,
+        "status_updates": status_updates,
     }
 
 
@@ -239,3 +273,123 @@ def commits_for_requirement(
     )
     rows = session.exec(statement).all()
     return rows[:limit] if limit else rows
+
+
+def _advance_started_requirements(
+    session: Session,
+    requirement_by_code: dict[str, Requirement],
+    primary_links: dict[int, list[Commit]],
+) -> list[dict]:
+    """Move requirements that clearly have work underway into IN_DEVELOPMENT.
+
+    Only called when the repository opts in. The change is written to the normal
+    version history with the commit that justified it, so the audit trail records
+    the evidence rather than just the edit.
+    """
+    by_id = {requirement.id: requirement for requirement in requirement_by_code.values()}
+    updates: list[dict] = []
+
+    for requirement_id, commits in primary_links.items():
+        requirement = by_id.get(requirement_id)
+        if requirement is None or requirement.status not in NOT_STARTED_STATUSES:
+            continue
+        earliest = min(commits, key=lambda commit: commit.committed_at)
+        previous = requirement.status.value
+        requirement.status = RequirementStatus.IN_DEVELOPMENT
+        requirement.version += 1
+        session.add(requirement)
+        session.add(
+            RequirementVersion(
+                requirement_id=requirement.id,
+                version=requirement.version,
+                changed_by=None,
+                summary=(
+                    f"status: {previous} -> IN_DEVELOPMENT "
+                    f"(first commit {earliest.sha[:8]} by {earliest.author_name})"
+                ),
+            )
+        )
+        updates.append(
+            {
+                "requirement_id": requirement.id,
+                "req_code": requirement.req_code,
+                "from_status": previous,
+                "to_status": RequirementStatus.IN_DEVELOPMENT.value,
+                "commit": earliest.sha[:8],
+                "commit_subject": earliest.subject,
+            }
+        )
+    session.commit()
+    return updates
+
+
+def evidence_report(session: Session, project_id: int) -> dict:
+    """Where the recorded status and the committed code disagree.
+
+    This is the manual counterpart to auto-advance: it never changes anything,
+    it just names the rows worth a conversation.
+    """
+    requirements = session.exec(
+        select(Requirement)
+        .where(Requirement.project_id == project_id)
+        .order_by(Requirement.req_code)
+    ).all()
+    commit_ids = session.exec(
+        select(Commit.id).where(Commit.project_id == project_id)
+    ).all()
+
+    all_counts: dict[int, int] = {}
+    primary_counts: dict[int, int] = {}
+    if commit_ids:
+        for link in session.exec(
+            select(CommitRequirement).where(
+                CommitRequirement.commit_id.in_(list(commit_ids))
+            )
+        ).all():
+            all_counts[link.requirement_id] = all_counts.get(link.requirement_id, 0) + 1
+            if link.primary:
+                primary_counts[link.requirement_id] = (
+                    primary_counts.get(link.requirement_id, 0) + 1
+                )
+
+    rows = []
+    for requirement in requirements:
+        commits = all_counts.get(requirement.id, 0)
+        primary = primary_counts.get(requirement.id, 0)
+        status = requirement.status
+
+        issue = None
+        detail = ""
+        suggestion = None
+        if status in NOT_STARTED_STATUSES and primary > 0:
+            issue = "STATUS_BEHIND"
+            detail = f"{primary} commit{'s' if primary != 1 else ''} but still {status.value}"
+            suggestion = RequirementStatus.IN_DEVELOPMENT.value
+        elif status not in NOT_STARTED_STATUSES and commits == 0:
+            issue = "NO_EVIDENCE"
+            detail = f"marked {status.value} with no commits referencing it"
+
+        rows.append(
+            {
+                "requirement_id": requirement.id,
+                "req_code": requirement.req_code,
+                "title": requirement.title,
+                "status": status.value,
+                "commits": commits,
+                "primary_commits": primary,
+                "issue": issue,
+                "detail": detail,
+                "suggested_status": suggestion,
+            }
+        )
+
+    return {
+        "project_id": project_id,
+        "rows": rows,
+        "summary": {
+            "total": len(rows),
+            "status_behind": len([r for r in rows if r["issue"] == "STATUS_BEHIND"]),
+            "no_evidence": len([r for r in rows if r["issue"] == "NO_EVIDENCE"]),
+            "agreeing": len([r for r in rows if r["issue"] is None]),
+        },
+    }
