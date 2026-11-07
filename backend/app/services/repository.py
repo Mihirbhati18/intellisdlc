@@ -125,8 +125,13 @@ def read_commits(path: Path, limit: int = MAX_COMMITS) -> list[dict]:
             continue
         sha, author_name, author_email, committed_at, subject = parts[:5]
         body = parts[5] if len(parts) > 5 else ""
+        # Newer git writes UTC as "...Z", which datetime.fromisoformat only
+        # accepts from Python 3.11, so normalise it to an explicit offset.
+        stamp = committed_at.strip()
+        if stamp.endswith("Z"):
+            stamp = stamp[:-1] + "+00:00"
         try:
-            when = datetime.fromisoformat(committed_at.strip())
+            when = datetime.fromisoformat(stamp)
         except ValueError:
             continue
         commits.append(

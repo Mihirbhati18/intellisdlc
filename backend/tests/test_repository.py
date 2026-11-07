@@ -214,3 +214,14 @@ def test_disconnecting_removes_the_commits(client, sample_repo):
 
     matrix = client.get(f"{API}/traceability?project_id=1", headers=headers).json()
     assert matrix["summary"]["with_commits"] == 0
+
+
+def test_utc_timestamps_ending_in_z_are_read(monkeypatch, tmp_path):
+    """Newer git prints UTC as "...Z"; those commits must not be skipped."""
+    record = repo_service.FIELD_SEP.join(
+        ["abc123", "Dev", "dev@example.test", "2026-11-07T14:47:56Z", "REQ-101 utc commit", ""]
+    ) + repo_service.RECORD_SEP
+    monkeypatch.setattr(repo_service, "_run_git", lambda args, cwd: record)
+    commits = repo_service.read_commits(tmp_path)
+    assert len(commits) == 1
+    assert commits[0]["committed_at"].hour == 14
