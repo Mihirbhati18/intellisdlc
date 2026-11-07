@@ -28,7 +28,7 @@ Plus full CRUD for projects, requirements (with version history), sprints and a 
 
 | | |
 |---|---|
-| Backend tests | **46 pytest tests** (auth, role permissions, versioning, traceability, risk scoring, redaction, AI agent, git sync) |
+| Backend tests | **47 pytest tests** (auth, role permissions, versioning, traceability, risk scoring, redaction, AI agent, git sync) |
 | UI checks | **128 automated browser checks** across 4 driver scripts, plus **13/13 Selenium test cases** passing ([report](docs/IntelliSDLC_Selenium_Test_Report.pdf)) |
 | Risk model | Accuracy **0.735**, F1 **0.71** on 400 held-out sprints (synthetic data, see limits) |
 | Setup | Runs fully offline: no API key, no internet, no database server |
@@ -154,7 +154,7 @@ cd backend
 pytest -q
 ```
 
-46 tests run against a temporary SQLite file, so the demo database is never touched. They cover
+47 tests run against a temporary SQLite file, so the demo database is never touched. They cover
 authentication, the role permissions, the requirement-versioning rule, the three pinned traceability
 outcomes, Sprint 3 scoring HIGH and Sprint 4 LOW, context redaction, the offline AI agent, and the
 git integration and both status-update modes (which build real throwaway repositories and sync them).
