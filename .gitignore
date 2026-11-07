@@ -12,3 +12,11 @@ dist/
 
 # UI driver output
 tools/screenshots/
+
+# Local-only files (originals with personal details, large media, tool settings)
+.claude/
+storyboard/
+*.docx
+/IntelliSDLC_SRS_and_WBS.pdf
+/INTELLISDLC_LEAN_PROMPT.md
+tools/selenium_screenshots/
